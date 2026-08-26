@@ -8,6 +8,7 @@ public enum PartnerDeskRuntimeEventKind
 {
     RunConfigured,
     RunStarted,
+    ModelProviderSelected,
     UserMessageSubmitted,
     McpSessionStarting,
     McpSessionReady,

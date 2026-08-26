@@ -5,6 +5,11 @@ ordered: **Step 1 · Choose a demo**, optionally use **Step 2 · Customize**, th
 Keep the **Story** tab selected for the numbered demos; open **Security** to investigate a red/amber event and **Debug** only when explaining the
 underlying runtime.
 
+Use **Scripted model · repeatable** for the canonical presenter sequence. If Azure credentials are configured,
+choose an **Azure OpenAI · &lt;deployment&gt;** entry afterward and frame it as an experiment: the live model may resist
+or follow the attack, so the UI labels it nondeterministic and records the selected deployment with the run. When
+the three reference environment variables are present, their matching Azure deployment is preselected at startup.
+
 ## Demo 1 — establish trust
 
 Select **1 · Clean baseline**, then **Run selected demo**.

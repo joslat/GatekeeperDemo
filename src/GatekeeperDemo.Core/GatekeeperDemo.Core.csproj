@@ -7,4 +7,8 @@
     <ProjectReference Include="..\AgentEval.PartnerDeskDemo\AgentEval.PartnerDeskDemo.csproj" />
     <ProjectReference Include="..\AgentEval.PartnerDeskDemo.Evals\AgentEval.PartnerDeskDemo.Evals.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Azure.AI.OpenAI" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+  </ItemGroup>
 </Project>

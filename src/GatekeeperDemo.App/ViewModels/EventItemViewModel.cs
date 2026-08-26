@@ -64,7 +64,8 @@ public sealed class EventItemViewModel
         PartnerDeskRuntimeEventKind.UserMessageSubmitted or PartnerDeskRuntimeEventKind.AgentAnswerProduced =>
             "MESSAGE",
         PartnerDeskRuntimeEventKind.AgentWorking => "AGENT",
-        PartnerDeskRuntimeEventKind.ModelRequestStarted or PartnerDeskRuntimeEventKind.ModelResponseReceived =>
+        PartnerDeskRuntimeEventKind.ModelProviderSelected or PartnerDeskRuntimeEventKind.ModelRequestStarted
+            or PartnerDeskRuntimeEventKind.ModelResponseReceived =>
             "MODEL",
         PartnerDeskRuntimeEventKind.McpSessionStarting or PartnerDeskRuntimeEventKind.McpSessionReady => "MCP",
         PartnerDeskRuntimeEventKind.ToolProposed or PartnerDeskRuntimeEventKind.ToolExecutionStarted

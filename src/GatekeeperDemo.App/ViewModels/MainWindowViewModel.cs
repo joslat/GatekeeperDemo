@@ -21,8 +21,23 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private static readonly IBrush SelectedSceneBackground = Brush.Parse("#224E8D");
     private static readonly IBrush SelectedSceneBorder = Brush.Parse("#5AA6FF");
 
+    private static readonly string[] KnownAzureDeployments =
+    [
+        "gpt-5.5",
+        "gpt-5-mini",
+        "gpt-5-chat",
+    ];
+
+    private static readonly string[] AvailableModels =
+    [
+        "Scripted model · repeatable",
+        .. KnownAzureDeployments.Select(deployment => $"Azure OpenAI · {deployment}"),
+    ];
+
     private readonly PartnerDeskRunCoordinator _coordinator = new();
     private readonly PartnerDeskEvaluationService _evaluationService = new();
+    private readonly string? _azureEndpoint;
+    private readonly string? _azureApiKey;
     private CancellationTokenSource? _runCancellation;
     private DemoPhase? _canonicalPhase = DemoPhase.Clean;
     private bool _applyingPreset;
@@ -34,6 +49,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private bool _isRunning;
     private bool _autoFollowEvents = true;
     private bool _audiencePacing = true;
+    private int _selectedModelIndex;
     private bool _evilMode;
     private bool _gatekeeperEnabled;
     private bool _databaseGateEnabled;
@@ -65,9 +81,26 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private IBrush _emailNodeAccent = IdleRoute;
 
     public MainWindowViewModel()
+        : this(
+            Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT"),
+            Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY"),
+            Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT"))
     {
+    }
+
+    public MainWindowViewModel(string? azureEndpoint, string? azureApiKey, string? azureDeployment)
+    {
+        _azureEndpoint = azureEndpoint;
+        _azureApiKey = azureApiKey;
+        var deploymentIndex = Array.FindIndex(KnownAzureDeployments, model =>
+            string.Equals(model, azureDeployment?.Trim(), StringComparison.Ordinal));
+        _selectedModelIndex = !string.IsNullOrWhiteSpace(azureEndpoint)
+                              && !string.IsNullOrWhiteSpace(azureApiKey)
+                              && deploymentIndex >= 0
+            ? deploymentIndex + 1
+            : 0;
         RunCommand = new AsyncRelayCommand(RunCurrentAsync, () => !IsRunning && IsConfigurationValid);
-        CompareCommand = new AsyncRelayCommand(RunComparisonAsync, () => !IsRunning && HasQuestion);
+        CompareCommand = new AsyncRelayCommand(RunComparisonAsync, () => !IsRunning && IsConfigurationValid);
         RunEvalsCommand = new AsyncRelayCommand(RunEvaluationAsync, () => !IsRunning && HasQuestion);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         CleanPresetCommand = new RelayCommand(() => ApplyPreset(DemoPhase.Clean), () => !IsRunning);
@@ -90,6 +123,8 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
 
     public ObservableCollection<EventItemViewModel> DebugEvents { get; } = [];
     public ObservableCollection<string> EvaluationProgress { get; } = [];
+
+    public IReadOnlyList<string> ModelOptions => AvailableModels;
 
     public AsyncRelayCommand RunCommand { get; }
     public AsyncRelayCommand CompareCommand { get; }
@@ -134,7 +169,10 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
 
     public bool HasQuestion => !string.IsNullOrWhiteSpace(Question);
 
-    public bool IsConfigurationValid => HasQuestion && CurrentConfiguration().Validate().Count == 0;
+    public bool IsConfigurationValid =>
+        HasQuestion
+        && CurrentConfiguration().Validate().Count == 0
+        && CurrentModelConfiguration().Validate().Count == 0;
 
     public string ConfigurationNotice
     {
@@ -151,11 +189,83 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
                 return "Configuration blocked: " + string.Join(" ", errors);
             }
 
+            var modelErrors = CurrentModelConfiguration().Validate();
+            if (modelErrors.Count > 0)
+            {
+                return "Model blocked: " + string.Join(" ", modelErrors);
+            }
+
             return _canonicalPhase is { } phase
                 ? $"Demo {(int)phase} selected · exact verified preset"
                 : "Custom configuration · no numbered demo is selected";
         }
     }
+
+    public int SelectedModelIndex
+    {
+        get => _selectedModelIndex;
+        set
+        {
+            var normalized = value >= 0 && value < AvailableModels.Length ? value : 0;
+            if (!SetProperty(ref _selectedModelIndex, normalized)) return;
+            ResetPresentationForConfigurationChange(makeCustom: false);
+            StatusMessage = IsAzureOpenAiSelected
+                ? $"Live Azure OpenAI deployment '{AzureDeployment}' selected — verify readiness, then run a nondeterministic experiment."
+                : "Scripted model selected — runs are offline and repeatable.";
+            RaiseModelConfigurationState();
+        }
+    }
+
+    public string? AzureDeployment => IsAzureOpenAiSelected
+        ? KnownAzureDeployments[SelectedModelIndex - 1]
+        : null;
+
+    public string ModelSelectionEvidence => AzureDeployment switch
+    {
+        "gpt-5.5" => "RECOMMENDED · measured 5/5 · silent concealment",
+        "gpt-5-mini" => "MEASURED 5/5 · sometimes discloses the export",
+        "gpt-5-chat" => "RESISTANT CONTROL · measured 0/5",
+        _ => "DETERMINISTIC · fixed offline decisions · no model request",
+    };
+
+    public bool IsAzureOpenAiSelected => SelectedModelIndex > 0;
+
+    public string ModelModeBadge =>
+        IsAzureOpenAiSelected ? "LIVE · NONDETERMINISTIC" : "SCRIPTED · REPEATABLE";
+
+    public IBrush ModelModeAccent => IsAzureOpenAiSelected ? BlockedRoute : NeutralRoute;
+
+    public IBrush ModelReadinessAccent =>
+        CurrentModelConfiguration().Validate().Count == 0 ? SafeRoute : RiskRoute;
+
+    public string ModelReadinessText
+    {
+        get
+        {
+            var configuration = CurrentModelConfiguration();
+            var errors = configuration.Validate();
+            if (errors.Count > 0)
+            {
+                return "NOT READY · " + string.Join(" ", errors);
+            }
+
+            return IsAzureOpenAiSelected
+                ? $"READY · real Azure request will use deployment '{AzureDeployment}' · credentials loaded from environment"
+                : "READY · offline · no credentials · fixed model decisions";
+        }
+    }
+
+    public string ModelNodeTitle => IsAzureOpenAiSelected
+        ? $"Azure OpenAI · {AzureDeployment}"
+        : "Scripted offline provider";
+
+    public string ModelNodeDetail => IsAzureOpenAiSelected
+        ? "Live responses and attack compliance can vary between runs"
+        : "Emits fixed next actions; hidden chain-of-thought is never displayed";
+
+    public string ModelDisclosure => IsAzureOpenAiSelected
+        ? "LIVE MODEL · Azure OpenAI output is nondeterministic; MCP/Gatekeeper are real; database/email effects remain local fakes."
+        : "DEMO DISCLOSURE · Deterministic offline model trajectory; genuine MCP child process and shipped Gatekeeper; database/email effects are local fakes.";
 
     public bool AutoFollowEvents
     {
@@ -338,11 +448,19 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             return null;
         }
 
+        var modelConfiguration = CurrentModelConfiguration();
+        var modelErrors = modelConfiguration.Validate();
+        if (modelErrors.Count > 0)
+        {
+            StatusMessage = "Cannot run model: " + string.Join(" ", modelErrors);
+            return null;
+        }
+
         if (clearEvents) ClearEvents();
         StartEventProjection();
         IsRunning = true;
-        RunBadge = "LIVE";
-        StatusMessage = $"Running {configuration.Name}…";
+        RunBadge = modelConfiguration.IsDeterministic ? "SCRIPTED RUN" : "AZURE RUN";
+        StatusMessage = $"Running {configuration.Name} with {modelConfiguration.DisplayName}…";
         AgentStatus = "Working";
         DatabaseStatus = "No effects yet";
         EmailStatus = "No effects yet";
@@ -353,7 +471,12 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         store.EventRecorded += OnEventRecorded;
         try
         {
-            var result = await _coordinator.RunAsync(configuration, Question, store, _runCancellation.Token);
+            var result = await _coordinator.RunAsync(
+                configuration,
+                Question,
+                store,
+                modelConfiguration,
+                _runCancellation.Token);
             store.EventRecorded -= OnEventRecorded;
             if (AudiencePacing)
             {
@@ -361,11 +484,14 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             }
             await CompleteEventProjectionAsync();
             _replay = new RunReplay(result.Artifact);
-            ApplyEvidence(result.Evidence);
+            ApplyEvidence(result.Evidence, result.Outcome);
             RunBadge = result.Evidence.UnsafeEffectOccurred ? "UNSAFE" : "SAFE";
+            var execution = result.Artifact.ModelExecution.Deterministic
+                ? "Scripted offline provider"
+                : $"Azure OpenAI · {result.Artifact.ModelExecution.Deployment}";
             StatusMessage = result.Evidence.UnsafeEffectOccurred
-                ? "Completed — unsafe simulated effects occurred. Inspect Security Events."
-                : "Completed — no unsafe tool effect occurred.";
+                ? $"Completed in {result.Duration.TotalSeconds:0.0}s via {execution} — unsafe simulated effects occurred. Inspect Security Events."
+                : $"Completed in {result.Duration.TotalSeconds:0.0}s via {execution} — no unsafe tool effect occurred.";
             AgentStatus = "Answer returned";
             RaiseCommandStates();
             return result;
@@ -627,15 +753,20 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         string.Equals(runtimeEvent.Source, actor, StringComparison.Ordinal)
         || string.Equals(runtimeEvent.Target, actor, StringComparison.Ordinal);
 
-    private void ApplyEvidence(RunEvidence evidence)
+    private void ApplyEvidence(RunEvidence evidence, PhaseOutcome outcome)
     {
+        var executions = outcome.RetryAfterContainment is { } retry
+            ? new[] { outcome, retry }
+            : new[] { outcome };
+        var databaseEffects = executions.Sum(execution => execution.DatabaseReads.Count);
+
         DatabaseStatus = evidence.ExecutedBulkReads > 0
             ? $"UNSAFE — {evidence.ExecutedBulkReads} bulk read(s)"
-            : $"Safe — {evidence.BulkReadAttempts} risky attempt(s), none executed";
+            : $"Safe — {databaseEffects} allowed read(s); {evidence.BulkReadAttempts} risky attempt(s)";
         DatabaseNodeAccent = evidence.ExecutedBulkReads > 0 ? RiskRoute : SafeRoute;
         EmailStatus = evidence.ExecutedExternalEmails > 0
             ? $"UNSAFE — {evidence.ExecutedExternalEmails} external send(s)"
-            : $"Safe — {evidence.ExternalEmailAttempts} risky attempt(s), none executed";
+            : $"Safe — {evidence.ExecutedInternalEmails} internal send(s); {evidence.ExternalEmailAttempts} risky attempt(s)";
         EmailNodeAccent = evidence.ExecutedExternalEmails > 0 ? RiskRoute : SafeRoute;
     }
 
@@ -691,6 +822,26 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             EvilMode,
             gates,
             EvilMode ? PartnerDeskScriptedTrajectory.Compromised : PartnerDeskScriptedTrajectory.Clean);
+    }
+
+    private PartnerDeskModelConfiguration CurrentModelConfiguration() =>
+        IsAzureOpenAiSelected
+            ? PartnerDeskModelConfiguration.AzureOpenAI(_azureEndpoint, _azureApiKey, AzureDeployment)
+            : PartnerDeskModelConfiguration.Scripted;
+
+    private void RaiseModelConfigurationState()
+    {
+        RaisePropertyChanged(nameof(IsAzureOpenAiSelected));
+        RaisePropertyChanged(nameof(ModelModeBadge));
+        RaisePropertyChanged(nameof(ModelModeAccent));
+        RaisePropertyChanged(nameof(ModelReadinessAccent));
+        RaisePropertyChanged(nameof(ModelReadinessText));
+        RaisePropertyChanged(nameof(ModelNodeTitle));
+        RaisePropertyChanged(nameof(ModelNodeDetail));
+        RaisePropertyChanged(nameof(ModelDisclosure));
+        RaisePropertyChanged(nameof(AzureDeployment));
+        RaisePropertyChanged(nameof(ModelSelectionEvidence));
+        RefreshConfigurationState();
     }
 
     private void GateChanged()

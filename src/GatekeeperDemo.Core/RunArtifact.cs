@@ -12,16 +12,18 @@ public sealed record RunArtifact(
     Guid RunId,
     DateTimeOffset CreatedUtc,
     PartnerDeskRunConfiguration Configuration,
+    ModelExecutionDescriptor ModelExecution,
     string Question,
     string Answer,
     RunEvidence Evidence,
     IReadOnlyList<ControlRoomEvent> Events,
     string IntegritySha256)
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public static RunArtifact Create(
         PartnerDeskRunConfiguration configuration,
+        ModelExecutionDescriptor modelExecution,
         string question,
         PhaseOutcome outcome,
         RunEvidence evidence,
@@ -42,6 +44,7 @@ public sealed record RunArtifact(
             events.FirstOrDefault()?.RunId ?? Guid.NewGuid(),
             DateTimeOffset.UtcNow,
             configuration,
+            modelExecution,
             Clip(question),
             Clip(outcome.RetryAfterContainment?.AnswerText ?? outcome.AnswerText),
             evidence,

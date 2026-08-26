@@ -10,13 +10,80 @@ public sealed class ViewModelTests
     [Fact]
     public async Task DefaultScene_IsVisiblySelectedAndRunnable()
     {
-        await using var viewModel = new MainWindowViewModel();
+        await using var viewModel = new MainWindowViewModel(null, null, null);
 
         Assert.True(viewModel.IsCleanPresetSelected);
         Assert.False(viewModel.IsCompromisedPresetSelected);
         Assert.True(viewModel.IsConfigurationValid);
         Assert.True(viewModel.RunCommand.CanExecute(null));
         Assert.Contains("Demo 1 selected", viewModel.ConfigurationNotice, StringComparison.Ordinal);
+        Assert.Equal(0, viewModel.SelectedModelIndex);
+        Assert.Contains("SCRIPTED", viewModel.ModelModeBadge, StringComparison.Ordinal);
+        Assert.Contains("no credentials", viewModel.ModelReadinessText, StringComparison.Ordinal);
+        Assert.Null(viewModel.AzureDeployment);
+    }
+
+    [Fact]
+    public async Task LiveModelWithoutEnvironment_IsExplainedAndCannotRun()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null)
+        {
+            SelectedModelIndex = 1,
+        };
+
+        Assert.True(viewModel.IsAzureOpenAiSelected);
+        Assert.False(viewModel.IsConfigurationValid);
+        Assert.False(viewModel.RunCommand.CanExecute(null));
+        Assert.Contains("AZURE_OPENAI_ENDPOINT", viewModel.ModelReadinessText, StringComparison.Ordinal);
+        Assert.Contains("Model blocked", viewModel.ConfigurationNotice, StringComparison.Ordinal);
+        Assert.True(viewModel.IsCleanPresetSelected);
+    }
+
+    [Fact]
+    public async Task ReadyLiveModel_ShowsDeploymentAndNondeterministicDisclosure()
+    {
+        await using var viewModel = new MainWindowViewModel(
+            "https://example.openai.azure.com/",
+            "not-a-real-secret",
+            "gpt-5.5");
+
+        Assert.Equal(1, viewModel.SelectedModelIndex);
+        Assert.True(viewModel.IsConfigurationValid);
+        Assert.True(viewModel.RunCommand.CanExecute(null));
+        Assert.Contains("gpt-5.5", viewModel.ModelNodeTitle, StringComparison.Ordinal);
+        Assert.Contains("NONDETERMINISTIC", viewModel.ModelModeBadge, StringComparison.Ordinal);
+        Assert.Contains("output is nondeterministic", viewModel.ModelDisclosure, StringComparison.Ordinal);
+        Assert.True(viewModel.IsCleanPresetSelected);
+    }
+
+    [Fact]
+    public async Task SingleModelDropdown_UpdatesTheExactExecutionModeAndDeployment()
+    {
+        await using var viewModel = new MainWindowViewModel(
+            "https://example.openai.azure.com/",
+            "not-a-real-secret",
+            null);
+
+        Assert.Equal(0, viewModel.SelectedModelIndex);
+        viewModel.SelectedModelIndex = 2;
+
+        Assert.Equal("gpt-5-mini", viewModel.AzureDeployment);
+        Assert.Contains("measured 5/5", viewModel.ModelSelectionEvidence, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("gpt-5-mini", viewModel.ModelReadinessText, StringComparison.Ordinal);
+        Assert.True(viewModel.IsConfigurationValid);
+    }
+
+    [Fact]
+    public async Task ReferenceEnvironment_PreselectsItsHardcodedAzureDeployment()
+    {
+        await using var viewModel = new MainWindowViewModel(
+            "https://example.openai.azure.com/",
+            "not-a-real-secret",
+            "gpt-5-chat");
+
+        Assert.Equal(3, viewModel.SelectedModelIndex);
+        Assert.Equal("gpt-5-chat", viewModel.AzureDeployment);
+        Assert.True(viewModel.IsAzureOpenAiSelected);
     }
 
     [Fact]

@@ -77,8 +77,30 @@
 
     <!-- Guided setup: choose, optionally customize, then run -->
     <Border Grid.Row="1" Background="#0A101D" BorderBrush="#202C41" BorderThickness="0,0,0,1" Padding="16,10">
-      <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-        <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="7">
+      <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#101A2B" BorderBrush="#2B3E5E" BorderThickness="1" CornerRadius="7" Padding="10,7" Margin="0,0,0,9">
+          <Grid RowDefinitions="Auto,Auto">
+            <Grid ColumnDefinitions="Auto,340,*,Auto">
+              <TextBlock Text="MODEL" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <ComboBox Grid.Column="1"
+                        ItemsSource="{Binding ModelOptions}"
+                        SelectedIndex="{Binding SelectedModelIndex}"
+                        IsEnabled="{Binding CanEditConfiguration}"
+                        AutomationProperties.Name="Model"
+                        ToolTip.Tip="Choose the exact execution path. Scripted is offline; every Azure OpenAI entry sends real requests to that fixed deployment using the reference environment variables." />
+              <TextBlock Grid.Column="2" Text="{Binding ModelReadinessText}" Foreground="{Binding ModelReadinessAccent}" FontSize="9"
+                         TextWrapping="Wrap" VerticalAlignment="Center" Margin="16,0"
+                         ToolTip.Tip="Azure models read AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY from the process environment. The selected dropdown entry is the deployment sent to Azure. Restart after changing environment variables." />
+              <Border Grid.Column="3" Background="#182338" BorderBrush="{Binding ModelModeAccent}" BorderThickness="1" CornerRadius="6" Padding="9,5" VerticalAlignment="Center">
+                <TextBlock Text="{Binding ModelModeBadge}" Foreground="{Binding ModelModeAccent}" FontSize="9" FontWeight="Bold" />
+              </Border>
+            </Grid>
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="4" Text="{Binding ModelSelectionEvidence}" Foreground="#C7A7FF" FontSize="9" FontWeight="SemiBold"
+                       Margin="52,7,0,0" TextWrapping="Wrap"
+                       ToolTip.Tip="Measured behavior from the imported PartnerDesk reference demo. Live results remain nondeterministic." />
+          </Grid>
+        </Border>
+        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="7">
           <TextBlock Text="STEP 1 · CHOOSE A DEMO" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,4,0" />
           <Button Content="1 · Clean baseline" Classes="scene" Background="{Binding CleanPresetBackground}" BorderBrush="{Binding CleanPresetBorder}" Command="{Binding CleanPresetCommand}"
                   ToolTip.Tip="Select the happy path: clean MCP supplier, no Gatekeeper, one legitimate lookup and internal email." />
@@ -91,7 +113,7 @@
           <Button Content="Compare demos 2 ↔ 4 · A/B" Classes="comparison" Command="{Binding CompareCommand}"
                   ToolTip.Tip="This is an action, not another selected demo. It runs Demo 2 and Demo 4 with the identical request, then compares actual effects side by side." />
         </StackPanel>
-        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="10" Margin="0,9,0,0" VerticalAlignment="Center">
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="10" Margin="0,9,0,0" VerticalAlignment="Center">
           <TextBlock Text="STEP 2 · OPTIONAL CUSTOMIZATION" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,4,0" />
           <Border Width="38" Height="38" CornerRadius="19" Background="{Binding EvilFaceBrush}" Opacity="{Binding EvilFaceOpacity}"
                   ToolTip.Tip="Evil MCP indicator. It fades in red when PartnerIntel serves the hostile addendum and fades out when clean.">
@@ -118,7 +140,7 @@
             <TextBlock Text="{Binding GatekeeperStateLabel}" Foreground="{Binding GatekeeperAccent}" FontSize="8" FontWeight="Bold" />
           </StackPanel>
         </StackPanel>
-        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="16" Margin="0,9,0,0">
+        <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Spacing="16" Margin="0,9,0,0">
           <TextBlock Text="CHOOSE INDIVIDUAL GATES" Classes="eyebrow" VerticalAlignment="Center" Margin="178,0,0,0" />
           <CheckBox Content="Database scope" IsChecked="{Binding DatabaseGateEnabled}" IsEnabled="{Binding CanEditIndividualGates}"
                     ToolTip.Tip="Allow only a named single-partner lookup; block bulk register reads before execution." />
@@ -129,7 +151,7 @@
           <CheckBox Content="Containment + retry" IsChecked="{Binding ContainmentEnabled}" IsEnabled="{Binding CanEditIndividualGates}"
                     ToolTip.Tip="Persist a containment decision after a hostile-result finding, then retry and refuse the contained MCP source." />
         </StackPanel>
-        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="7" Margin="12,9,0,0" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="7" Margin="12,9,0,0" HorizontalAlignment="Right">
           <TextBlock Text="OPTIONAL · TEST ALL 4 DEMOS" Classes="eyebrow" VerticalAlignment="Center" />
           <Button Content="Run batch .Evals" Command="{Binding RunEvalsCommand}"
                   ToolTip.Tip="This does not run only the selected demo. It runs all four imported AgentEval evaluation arms and renders their safety-oracle report in AI Events → .Evals." />
@@ -138,7 +160,7 @@
                          ToolTip.Tip="Number of deterministic samples to execute for each of the four evaluation arms." />
           <TextBlock Text="samples / demo" Classes="muted" FontSize="9" VerticalAlignment="Center" />
         </StackPanel>
-        <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*,280,Auto" Margin="0,9,0,0">
+        <Grid Grid.Row="4" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*,280,Auto" Margin="0,9,0,0">
           <TextBlock Text="STEP 3 · REVIEW REQUEST &amp; RUN" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0" />
           <TextBox Grid.Column="1"
                    Text="{Binding Question}"
@@ -212,11 +234,11 @@
                     <TextBlock Text="◀━━━━━  ACTION" Classes="flow" Foreground="{Binding AgentModelRoute}" />
                   </StackPanel>
                   <Border Grid.Column="4" Classes="node" BorderBrush="{Binding AgentModelRoute}"
-                          ToolTip.Tip="The deterministic offline model replays known trajectories for a repeatable stage demo. Hidden reasoning is never displayed.">
+                          ToolTip.Tip="The selected model provider. Scripted mode is repeatable; Azure OpenAI mode is live and nondeterministic. Hidden reasoning is never displayed.">
                     <StackPanel>
                       <TextBlock Text="MODEL" Classes="eyebrow" />
-                      <TextBlock Text="Scripted offline provider" Classes="heading" Margin="0,4,0,0" />
-                      <TextBlock Text="Emits next actions; hidden chain-of-thought is never displayed" Classes="muted" FontSize="9" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding ModelNodeTitle}" Classes="heading" Margin="0,4,0,0" />
+                      <TextBlock Text="{Binding ModelNodeDetail}" Classes="muted" FontSize="9" TextWrapping="Wrap" />
                     </StackPanel>
                   </Border>
                 </Grid>
@@ -489,7 +511,7 @@
 
     <Border Grid.Row="3" Background="#090F1A" BorderBrush="#202C41" BorderThickness="0,1,0,0" Padding="14,7">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="DEMO DISCLOSURE · Deterministic offline model trajectory; genuine MCP child process and shipped Gatekeeper; database/email effects are local fakes."
+        <TextBlock Text="{Binding ModelDisclosure}"
                    Foreground="#74839B" FontSize="9" />
         <TextBlock Grid.Column="1" Text="No hidden chain-of-thought is displayed · payload previews are bounded"
                    Foreground="#52627A" FontSize="9" />

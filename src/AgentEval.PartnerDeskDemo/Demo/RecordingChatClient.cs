@@ -36,19 +36,10 @@ public sealed class RecordingChatClient : DelegatingChatClient
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        _events.EmitSafely(new(
-            PartnerDeskRuntimeEventKind.ModelRequestStarted,
-            "agent",
-            "model",
-            "Model request",
-            "The agent sent the current conversation and available tool contracts to the model."));
+        EmitModelRequest();
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var response = await base.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
-        _events.EmitSafely(new(
-            PartnerDeskRuntimeEventKind.ModelResponseReceived,
-            "model",
-            "agent",
-            "Model response",
-            "The model returned its next action or final answer."));
+        EmitModelResponse(stopwatch.Elapsed);
         Record(response.Messages);
         return response;
     }
@@ -59,6 +50,8 @@ public sealed class RecordingChatClient : DelegatingChatClient
         ChatOptions? options = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        EmitModelRequest();
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var updates = new List<ChatResponseUpdate>();
         await foreach (var update in base.GetStreamingResponseAsync(messages, options, cancellationToken)
             .ConfigureAwait(false))
@@ -67,8 +60,25 @@ public sealed class RecordingChatClient : DelegatingChatClient
             yield return update;
         }
 
+        EmitModelResponse(stopwatch.Elapsed);
         Record(updates.ToChatResponse().Messages);
     }
+
+    private void EmitModelRequest() =>
+        _events.EmitSafely(new(
+            PartnerDeskRuntimeEventKind.ModelRequestStarted,
+            "agent",
+            "model",
+            "Model request started",
+            "The agent sent the current conversation and available tool contracts to the selected model."));
+
+    private void EmitModelResponse(TimeSpan elapsed) =>
+        _events.EmitSafely(new(
+            PartnerDeskRuntimeEventKind.ModelResponseReceived,
+            "model",
+            "agent",
+            "Model response received",
+            $"The selected model returned its next action or final answer after {elapsed.TotalSeconds:0.000}s."));
 
     private void Record(IEnumerable<ChatMessage> produced)
     {
