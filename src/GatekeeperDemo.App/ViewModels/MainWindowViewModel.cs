@@ -27,6 +27,8 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private static readonly IBrush SafeNodeSurface = Brush.Parse("#12382B");
     private static readonly IBrush RiskNodeSurface = Brush.Parse("#3D1B25");
     private static readonly IBrush BlockedNodeSurface = Brush.Parse("#3B2C19");
+    private static readonly IBrush EnabledGateSurface = Brush.Parse("#1B3552");
+    private static readonly IBrush DisabledGateSurface = Brush.Parse("#0A111C");
 
     private static readonly string[] KnownAzureDeployments =
     [
@@ -103,16 +105,19 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private IBrush _mcpCallRoute = IdleRoute;
     private IBrush _mcpResultRoute = IdleRoute;
     private IBrush _mcpGateAccent = IdleRoute;
+    private IBrush _mcpGateSurface = DisabledGateSurface;
     private IBrush _mcpAdmitRoute = IdleRoute;
     private IBrush _mcpInspectRoute = IdleRoute;
     private IBrush _databaseCallRoute = IdleRoute;
     private IBrush _databaseRowsRoute = IdleRoute;
     private IBrush _databaseGateAccent = IdleRoute;
+    private IBrush _databaseGateSurface = DisabledGateSurface;
     private IBrush _databaseAllowRoute = IdleRoute;
     private IBrush _databaseEffectRoute = IdleRoute;
     private IBrush _emailCallRoute = IdleRoute;
     private IBrush _emailReceiptRoute = IdleRoute;
     private IBrush _emailGateAccent = IdleRoute;
+    private IBrush _emailGateSurface = DisabledGateSurface;
     private IBrush _emailAllowRoute = IdleRoute;
     private IBrush _emailEffectRoute = IdleRoute;
     private double _mcpShieldOpacity = 0.56;
@@ -484,16 +489,22 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     public IBrush McpCallRoute { get => _mcpCallRoute; private set => SetProperty(ref _mcpCallRoute, value); }
     public IBrush McpResultRoute { get => _mcpResultRoute; private set => SetProperty(ref _mcpResultRoute, value); }
     public IBrush McpGateAccent { get => _mcpGateAccent; private set => SetProperty(ref _mcpGateAccent, value); }
+    public IBrush McpGateSurface { get => _mcpGateSurface; private set => SetProperty(ref _mcpGateSurface, value); }
+    public double McpGateOpacity => McpGateEnabled ? 1 : 0.52;
     public IBrush McpAdmitRoute { get => _mcpAdmitRoute; private set => SetProperty(ref _mcpAdmitRoute, value); }
     public IBrush McpInspectRoute { get => _mcpInspectRoute; private set => SetProperty(ref _mcpInspectRoute, value); }
     public IBrush DatabaseCallRoute { get => _databaseCallRoute; private set => SetProperty(ref _databaseCallRoute, value); }
     public IBrush DatabaseRowsRoute { get => _databaseRowsRoute; private set => SetProperty(ref _databaseRowsRoute, value); }
     public IBrush DatabaseGateAccent { get => _databaseGateAccent; private set => SetProperty(ref _databaseGateAccent, value); }
+    public IBrush DatabaseGateSurface { get => _databaseGateSurface; private set => SetProperty(ref _databaseGateSurface, value); }
+    public double DatabaseGateOpacity => DatabaseGateActive ? 1 : 0.52;
     public IBrush DatabaseAllowRoute { get => _databaseAllowRoute; private set => SetProperty(ref _databaseAllowRoute, value); }
     public IBrush DatabaseEffectRoute { get => _databaseEffectRoute; private set => SetProperty(ref _databaseEffectRoute, value); }
     public IBrush EmailCallRoute { get => _emailCallRoute; private set => SetProperty(ref _emailCallRoute, value); }
     public IBrush EmailReceiptRoute { get => _emailReceiptRoute; private set => SetProperty(ref _emailReceiptRoute, value); }
     public IBrush EmailGateAccent { get => _emailGateAccent; private set => SetProperty(ref _emailGateAccent, value); }
+    public IBrush EmailGateSurface { get => _emailGateSurface; private set => SetProperty(ref _emailGateSurface, value); }
+    public double EmailGateOpacity => EmailGateActive ? 1 : 0.52;
     public IBrush EmailAllowRoute { get => _emailAllowRoute; private set => SetProperty(ref _emailAllowRoute, value); }
     public IBrush EmailEffectRoute { get => _emailEffectRoute; private set => SetProperty(ref _emailEffectRoute, value); }
     public int McpShieldCount => ShieldCount(ToolLane.Mcp);
@@ -905,6 +916,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             case PartnerDeskRuntimeEventKind.ContainmentActivated:
                 FocusMcp(accent, surface);
                 McpGateAccent = accent;
+                McpGateSurface = surface;
                 McpInspectRoute = accent;
                 break;
 
@@ -927,15 +939,27 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         {
             case ToolLane.Mcp:
                 McpCallRoute = accent;
-                if (McpGateEnabled) McpGateAccent = accent;
+                if (McpGateEnabled)
+                {
+                    McpGateAccent = accent;
+                    McpGateSurface = surface;
+                }
                 break;
             case ToolLane.Database:
                 DatabaseCallRoute = accent;
-                if (DatabaseGateActive) DatabaseGateAccent = accent;
+                if (DatabaseGateActive)
+                {
+                    DatabaseGateAccent = accent;
+                    DatabaseGateSurface = surface;
+                }
                 break;
             case ToolLane.Email:
                 EmailCallRoute = accent;
-                if (EmailGateActive) EmailGateAccent = accent;
+                if (EmailGateActive)
+                {
+                    EmailGateAccent = accent;
+                    EmailGateSurface = surface;
+                }
                 break;
         }
     }
@@ -968,7 +992,11 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             case ToolLane.Mcp:
                 FocusMcp(accent, surface);
                 McpInspectRoute = accent;
-                if (McpGateEnabled) McpGateAccent = accent;
+                if (McpGateEnabled)
+                {
+                    McpGateAccent = accent;
+                    McpGateSurface = surface;
+                }
                 McpResultRoute = accent;
                 break;
             case ToolLane.Database:
@@ -995,6 +1023,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         {
             case ToolLane.Mcp:
                 McpGateAccent = accent;
+                McpGateSurface = surface;
                 PulseShield(ToolLane.Mcp);
                 if (eventKind == PartnerDeskRuntimeEventKind.ResultWithheld)
                 {
@@ -1009,11 +1038,13 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             case ToolLane.Database:
                 DatabaseCallRoute = accent;
                 DatabaseGateAccent = accent;
+                DatabaseGateSurface = surface;
                 PulseShield(ToolLane.Database);
                 break;
             case ToolLane.Email:
                 EmailCallRoute = accent;
                 EmailGateAccent = accent;
+                EmailGateSurface = surface;
                 PulseShield(ToolLane.Email);
                 break;
         }
@@ -1271,6 +1302,9 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         RaisePropertyChanged(nameof(EmailGateLabel));
         RaisePropertyChanged(nameof(ResultGateLabel));
         RaisePropertyChanged(nameof(ContainmentLabel));
+        RaisePropertyChanged(nameof(McpGateOpacity));
+        RaisePropertyChanged(nameof(DatabaseGateOpacity));
+        RaisePropertyChanged(nameof(EmailGateOpacity));
     }
 
     private void RefreshConfigurationState()
@@ -1374,10 +1408,15 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             McpNodeSurface = DatabaseNodeSurface = EmailNodeSurface = IdleNodeSurface;
 
         UserRequestRoute = UserAnswerRoute = ModelRequestRoute = ModelActionRoute = IdleRoute;
-        McpCallRoute = McpResultRoute = McpGateAccent = McpAdmitRoute = McpInspectRoute = IdleRoute;
-        DatabaseCallRoute = DatabaseRowsRoute = DatabaseGateAccent = DatabaseAllowRoute =
-            DatabaseEffectRoute = IdleRoute;
-        EmailCallRoute = EmailReceiptRoute = EmailGateAccent = EmailAllowRoute = EmailEffectRoute = IdleRoute;
+        McpCallRoute = McpResultRoute = McpAdmitRoute = McpInspectRoute = IdleRoute;
+        DatabaseCallRoute = DatabaseRowsRoute = DatabaseAllowRoute = DatabaseEffectRoute = IdleRoute;
+        EmailCallRoute = EmailReceiptRoute = EmailAllowRoute = EmailEffectRoute = IdleRoute;
+        McpGateAccent = McpGateEnabled ? NeutralRoute : MutedAccent;
+        DatabaseGateAccent = DatabaseGateActive ? NeutralRoute : MutedAccent;
+        EmailGateAccent = EmailGateActive ? NeutralRoute : MutedAccent;
+        McpGateSurface = McpGateEnabled ? EnabledGateSurface : DisabledGateSurface;
+        DatabaseGateSurface = DatabaseGateActive ? EnabledGateSurface : DisabledGateSurface;
+        EmailGateSurface = EmailGateActive ? EnabledGateSurface : DisabledGateSurface;
         McpShieldOpacity = McpShieldCount > 0 ? 0.72 : 0.56;
         DatabaseShieldOpacity = DatabaseShieldCount > 0 ? 0.72 : 0.56;
         EmailShieldOpacity = EmailShieldCount > 0 ? 0.72 : 0.56;

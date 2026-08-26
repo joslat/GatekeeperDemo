@@ -329,8 +329,16 @@
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                   </Grid>
-                  <Border Grid.Row="1" Grid.Column="3" Background="#172238" BorderBrush="{Binding McpGateAccent}" BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                  <Border Grid.Row="1" Grid.Column="3" Background="{Binding McpGateSurface}" BorderBrush="{Binding McpGateAccent}" Opacity="{Binding McpGateOpacity}"
+                          BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
                           ToolTip.Tip="Result admission inspects the MCP response before model context. Containment refuses later calls after an operator records the hostile source.">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                        <BrushTransition Property="Background" Duration="0:0:0.22" />
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.22" />
+                      </Transitions>
+                    </Border.Transitions>
                     <StackPanel>
                       <TextBlock Text="{Binding ResultGateLabel}" Foreground="{Binding McpGateAccent}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
                       <TextBlock Text="{Binding ContainmentLabel}" Foreground="{Binding McpGateAccent}" FontSize="8" HorizontalAlignment="Center" Margin="0,3,0,0" />
@@ -377,8 +385,16 @@
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                   </Grid>
-                  <Border Grid.Row="2" Grid.Column="3" Background="#172238" BorderBrush="{Binding DatabaseGateAccent}" BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                  <Border Grid.Row="2" Grid.Column="3" Background="{Binding DatabaseGateSurface}" BorderBrush="{Binding DatabaseGateAccent}" Opacity="{Binding DatabaseGateOpacity}"
+                          BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
                           ToolTip.Tip="Database scope gate: permits one named partner lookup and blocks bulk register reads before execution.">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                        <BrushTransition Property="Background" Duration="0:0:0.22" />
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.22" />
+                      </Transitions>
+                    </Border.Transitions>
                     <TextBlock Text="{Binding DatabaseGateLabel}" Foreground="{Binding DatabaseGateAccent}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
                   </Border>
                   <StackPanel Grid.Row="2" Grid.Column="4" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
@@ -419,8 +435,16 @@
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                   </Grid>
-                  <Border Grid.Row="3" Grid.Column="3" Background="#172238" BorderBrush="{Binding EmailGateAccent}" BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                  <Border Grid.Row="3" Grid.Column="3" Background="{Binding EmailGateSurface}" BorderBrush="{Binding EmailGateAccent}" Opacity="{Binding EmailGateOpacity}"
+                          BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
                           ToolTip.Tip="Recipient gate: permits the firm's internal email domain and blocks external recipients before execution.">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                        <BrushTransition Property="Background" Duration="0:0:0.22" />
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.22" />
+                      </Transitions>
+                    </Border.Transitions>
                     <TextBlock Text="{Binding EmailGateLabel}" Foreground="{Binding EmailGateAccent}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
                   </Border>
                   <StackPanel Grid.Row="3" Grid.Column="4" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">

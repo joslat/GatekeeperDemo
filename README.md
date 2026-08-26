@@ -67,8 +67,9 @@ for display and replay artifacts; email bodies are not retained by the effect le
 - `tests/GatekeeperDemo.Core.Tests` — GUI-driven runtime, custom-gate, artifact, replay, and Evals integration.
 - `tests/GatekeeperDemo.App.Tests` — control-room state, validation, selection, and audience-label regressions.
 
-See the [user guide](docs/User-Guide.md), [architecture](docs/Architecture.md),
-[presenter runbook](docs/Presenter-Runbook.md), and [implementation review](docs/Implementation-Review.md).
+See the [demo summary](docs/Demo-Summary.md), [user guide](docs/User-Guide.md),
+[architecture](docs/Architecture.md), [presenter runbook](docs/Presenter-Runbook.md), and
+[implementation review](docs/Implementation-Review.md).
 
 ## Verify
 

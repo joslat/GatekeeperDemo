@@ -134,6 +134,29 @@ public sealed class ViewModelTests
     }
 
     [Fact]
+    public async Task ToolGatesPreset_BrightensOnlyDatabaseAndEmailBeforeDetectAndContainEnablesMcp()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null);
+
+        viewModel.Level1PresetCommand.Execute(null);
+
+        Assert.Equal(1, viewModel.DatabaseGateOpacity);
+        Assert.Equal(1, viewModel.EmailGateOpacity);
+        Assert.Equal(0.52, viewModel.McpGateOpacity);
+        Assert.Equal(viewModel.DatabaseGateSurface, viewModel.EmailGateSurface);
+        Assert.NotEqual(viewModel.DatabaseGateSurface, viewModel.McpGateSurface);
+        Assert.Contains("RESULT ADMISSION · OFF", viewModel.ResultGateLabel, StringComparison.Ordinal);
+
+        viewModel.Level2PresetCommand.Execute(null);
+
+        Assert.Equal(1, viewModel.DatabaseGateOpacity);
+        Assert.Equal(1, viewModel.EmailGateOpacity);
+        Assert.Equal(1, viewModel.McpGateOpacity);
+        Assert.Equal(viewModel.DatabaseGateSurface, viewModel.McpGateSurface);
+        Assert.Contains("RESULT ADMISSION · ON", viewModel.ResultGateLabel, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnswerEvent_IsAnObservationRatherThanASafetyVerdict()
     {
         var runtimeEvent = new ControlRoomEvent(
