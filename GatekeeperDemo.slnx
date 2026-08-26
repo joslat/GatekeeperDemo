@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="src/AgentEval.PartnerDeskDemo/AgentEval.PartnerDeskDemo.csproj" />
+  <Project Path="src/AgentEval.PartnerDeskDemo.Evals/AgentEval.PartnerDeskDemo.Evals.csproj" />
+  <Project Path="src/GatekeeperDemo.Core/GatekeeperDemo.Core.csproj" />
+  <Project Path="src/GatekeeperDemo.App/GatekeeperDemo.App.csproj" />
+  <Project Path="tests/AgentEval.PartnerDeskDemo.Tests/AgentEval.PartnerDeskDemo.Tests.csproj" />
+  <Project Path="tests/GatekeeperDemo.Core.Tests/GatekeeperDemo.Core.Tests.csproj" />
+  <Project Path="tests/GatekeeperDemo.App.Tests/GatekeeperDemo.App.Tests.csproj" />
+</Solution>

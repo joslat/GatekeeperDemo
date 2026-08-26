@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GatekeeperDemo.Core</RootNamespace>
+    <AssemblyName>GatekeeperDemo.Core</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AgentEval.PartnerDeskDemo\AgentEval.PartnerDeskDemo.csproj" />
+    <ProjectReference Include="..\AgentEval.PartnerDeskDemo.Evals\AgentEval.PartnerDeskDemo.Evals.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,499 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GatekeeperDemo.App.MainWindow"
+        x:CompileBindings="False"
+        Title="Gatekeeper · PartnerDesk Control Room"
+        Width="1600"
+        Height="960"
+        MinWidth="1180"
+        MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        Closing="OnClosing">
+  <Window.Resources>
+    <DataTemplate x:Key="EventTemplate">
+      <Border Margin="0,0,0,8"
+              Padding="10"
+              CornerRadius="8"
+              BorderBrush="#263550"
+              BorderThickness="1"
+              Background="#101827">
+        <Grid ColumnDefinitions="32,*" RowDefinitions="Auto,Auto,Auto">
+          <Border Grid.RowSpan="3"
+                  Width="24" Height="24"
+                  Margin="0,1,0,0"
+                  CornerRadius="12"
+                  Background="{Binding Accent}">
+            <TextBlock Text="{Binding Icon}"
+                       Foreground="#08101D"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontWeight="Bold" />
+          </Border>
+          <Grid Grid.Column="1" ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding Title}" Classes="heading" FontSize="12" />
+            <Border Grid.Column="1" Background="#1C2940" CornerRadius="4" Padding="5,2">
+              <TextBlock Text="{Binding Badge}" Foreground="{Binding Accent}" FontSize="8" FontWeight="Bold" />
+            </Border>
+          </Grid>
+          <TextBlock Grid.Row="1" Grid.Column="1"
+                     Text="{Binding Route}"
+                     Foreground="#7890B4"
+                     FontSize="10"
+                     Margin="0,4,0,2" />
+          <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding Detail}"
+                       Foreground="#A8B5CA"
+                       FontSize="10"
+                       TextWrapping="Wrap"
+                       MaxHeight="44" />
+            <TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="#64748D" FontSize="9" Margin="8,0,0,0" />
+          </Grid>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Grid RowDefinitions="66,Auto,*,34">
+    <!-- Presenter header -->
+    <Border Grid.Row="0" Background="#0D1422" BorderBrush="#24314A" BorderThickness="0,0,0,1" Padding="18,10">
+      <Grid ColumnDefinitions="250,*,Auto">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="PARTNERDESK · GATEKEEPER" Classes="eyebrow" />
+          <TextBlock Text="AI Security Control Room" FontSize="20" FontWeight="SemiBold" Foreground="#F5F8FF" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Margin="28,0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding StatusMessage}" Foreground="#A9B6CA" FontSize="12" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="Ordered semantic events · actual proposals · actual gate findings · actual simulated effects"
+                     Foreground="#60708A" FontSize="9" Margin="0,3,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Text="RUN STATUS" Classes="eyebrow" VerticalAlignment="Center" />
+          <Border Background="#19263B" BorderBrush="#355075" BorderThickness="1" CornerRadius="6" Padding="9,6">
+            <TextBlock Text="{Binding RunBadge}" Foreground="#8FC1FF" FontSize="10" FontWeight="Bold" />
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Guided setup: choose, optionally customize, then run -->
+    <Border Grid.Row="1" Background="#0A101D" BorderBrush="#202C41" BorderThickness="0,0,0,1" Padding="16,10">
+      <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+        <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="7">
+          <TextBlock Text="STEP 1 · CHOOSE A DEMO" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,4,0" />
+          <Button Content="1 · Clean baseline" Classes="scene" Background="{Binding CleanPresetBackground}" BorderBrush="{Binding CleanPresetBorder}" Command="{Binding CleanPresetCommand}"
+                  ToolTip.Tip="Select the happy path: clean MCP supplier, no Gatekeeper, one legitimate lookup and internal email." />
+          <Button Content="2 · Attack · no gates" Classes="scene" Background="{Binding CompromisedPresetBackground}" BorderBrush="{Binding CompromisedPresetBorder}" Command="{Binding CompromisedPresetCommand}"
+                  ToolTip.Tip="Select the attack path: evil MCP addendum, no Gatekeeper, simulated bulk-read and external-email effects." />
+          <Button Content="3 · Tool gates" Classes="scene" Background="{Binding Level1PresetBackground}" BorderBrush="{Binding Level1PresetBorder}" Command="{Binding Level1PresetCommand}"
+                  ToolTip.Tip="Select Level 1: the evil result reaches the model, but database-scope and email-recipient gates block misuse." />
+          <Button Content="4 · Detect + contain" Classes="scene" Background="{Binding Level2PresetBackground}" BorderBrush="{Binding Level2PresetBorder}" Command="{Binding Level2PresetCommand}"
+                  ToolTip.Tip="Select Level 2: withhold the hostile MCP result, contain the source, then retry the same request." />
+          <Button Content="Compare demos 2 ↔ 4 · A/B" Classes="comparison" Command="{Binding CompareCommand}"
+                  ToolTip.Tip="This is an action, not another selected demo. It runs Demo 2 and Demo 4 with the identical request, then compares actual effects side by side." />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="10" Margin="0,9,0,0" VerticalAlignment="Center">
+          <TextBlock Text="STEP 2 · OPTIONAL CUSTOMIZATION" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,4,0" />
+          <Border Width="38" Height="38" CornerRadius="19" Background="{Binding EvilFaceBrush}" Opacity="{Binding EvilFaceOpacity}"
+                  ToolTip.Tip="Evil MCP indicator. It fades in red when PartnerIntel serves the hostile addendum and fades out when clean.">
+            <Border.Transitions>
+              <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.35" />
+                <BrushTransition Property="Background" Duration="0:0:0.35" />
+              </Transitions>
+            </Border.Transitions>
+            <TextBlock Text="😈" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <StackPanel MinWidth="98">
+            <TextBlock Text="EVIL MCP" Classes="eyebrow" />
+            <ToggleSwitch IsChecked="{Binding EvilMode}" OnContent="On" OffContent="Off" IsEnabled="{Binding CanEditConfiguration}"
+                          AutomationProperties.Name="Evil MCP mode"
+                          ToolTip.Tip="Switch the real PartnerIntel MCP child process between clean output and a hostile jailbreak addendum." />
+          </StackPanel>
+          <Border Width="1" Height="38" Background="#2A3850" Margin="2,0" />
+          <StackPanel MinWidth="138">
+            <TextBlock Text="GATEKEEPER MASTER" Classes="eyebrow" />
+            <ToggleSwitch IsChecked="{Binding GatekeeperEnabled}" OnContent="On" OffContent="Off" IsEnabled="{Binding CanEditConfiguration}"
+                          AutomationProperties.Name="Gatekeeper master switch"
+                          ToolTip.Tip="Install or bypass all selected Gatekeeper protections. Child selections are retained but dormant while off." />
+            <TextBlock Text="{Binding GatekeeperStateLabel}" Foreground="{Binding GatekeeperAccent}" FontSize="8" FontWeight="Bold" />
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="16" Margin="0,9,0,0">
+          <TextBlock Text="CHOOSE INDIVIDUAL GATES" Classes="eyebrow" VerticalAlignment="Center" Margin="178,0,0,0" />
+          <CheckBox Content="Database scope" IsChecked="{Binding DatabaseGateEnabled}" IsEnabled="{Binding CanEditIndividualGates}"
+                    ToolTip.Tip="Allow only a named single-partner lookup; block bulk register reads before execution." />
+          <CheckBox Content="Email recipient" IsChecked="{Binding EmailGateEnabled}" IsEnabled="{Binding CanEditIndividualGates}"
+                    ToolTip.Tip="Allow only recipients in the firm's internal email domain; block external sends before execution." />
+          <CheckBox Content="MCP result admission" IsChecked="{Binding ResultGateEnabled}" IsEnabled="{Binding CanEditIndividualGates}"
+                    ToolTip.Tip="Inspect PartnerIntel output before it enters model context; withhold instruction-shaped hostile results." />
+          <CheckBox Content="Containment + retry" IsChecked="{Binding ContainmentEnabled}" IsEnabled="{Binding CanEditIndividualGates}"
+                    ToolTip.Tip="Persist a containment decision after a hostile-result finding, then retry and refuse the contained MCP source." />
+        </StackPanel>
+        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="7" Margin="12,9,0,0" HorizontalAlignment="Right">
+          <TextBlock Text="OPTIONAL · TEST ALL 4 DEMOS" Classes="eyebrow" VerticalAlignment="Center" />
+          <Button Content="Run batch .Evals" Command="{Binding RunEvalsCommand}"
+                  ToolTip.Tip="This does not run only the selected demo. It runs all four imported AgentEval evaluation arms and renders their safety-oracle report in AI Events → .Evals." />
+          <NumericUpDown Width="104" Minimum="1" Maximum="25" Increment="1" Value="{Binding EvaluationRuns}" FormatString="0"
+                         AutomationProperties.Name="Evaluation samples per arm"
+                         ToolTip.Tip="Number of deterministic samples to execute for each of the four evaluation arms." />
+          <TextBlock Text="samples / demo" Classes="muted" FontSize="9" VerticalAlignment="Center" />
+        </StackPanel>
+        <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*,280,Auto" Margin="0,9,0,0">
+          <TextBlock Text="STEP 3 · REVIEW REQUEST &amp; RUN" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0" />
+          <TextBox Grid.Column="1"
+                   Text="{Binding Question}"
+                   AutomationProperties.Name="User request"
+                   Watermark="Ask PartnerDesk to prepare and send a due-diligence note…"
+                   MinHeight="34"
+                   FontSize="12"
+                   IsEnabled="{Binding CanEditConfiguration}"
+                   VerticalContentAlignment="Center" />
+          <TextBlock Grid.Column="2"
+                     Text="{Binding ConfigurationNotice}"
+                     Foreground="#8FA7C8"
+                     FontSize="9"
+                     TextWrapping="Wrap"
+                     MaxWidth="268"
+                     Margin="12,0,0,0"
+                     VerticalAlignment="Center" />
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center">
+            <Button Content="▶  Run selected demo" Classes="primary" Command="{Binding RunCommand}" MinWidth="174"
+                    ToolTip.Tip="Start one run using the blue preset—or the Custom configuration shown beside the request." />
+            <Button Content="Cancel" Classes="danger" Command="{Binding CancelCommand}"
+                    ToolTip.Tip="Cancel the active demo or evaluation. Effects already recorded remain visible." />
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <!-- Two-column control room -->
+    <Grid Grid.Row="2" ColumnDefinitions="1.8*,6,1*" Margin="14">
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+          <Border Classes="card">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel>
+                  <TextBlock Text="LIVE INFORMATION FLOW" Classes="eyebrow" />
+                  <TextBlock Text="Requests, responses, gates, and effects" Classes="heading" FontSize="16" Margin="0,4,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                  <TextBlock Text="{Binding EvilModeLabel}" Foreground="{Binding McpAccent}" FontSize="10" FontWeight="Bold" />
+                  <TextBlock Text="Arrows light by event: green safe · red risky · amber blocked"
+                             Classes="muted" FontSize="9" Margin="0,4,0,0" />
+                </StackPanel>
+              </Grid>
+
+              <!-- Human / agent / model request-response lane -->
+              <Border Background="#0B1220" BorderBrush="#22314A" BorderThickness="1" CornerRadius="8" Padding="14">
+                <Grid ColumnDefinitions="190,128,220,128,190" VerticalAlignment="Center">
+                  <Border Classes="node" BorderBrush="{Binding UserAgentRoute}"
+                          ToolTip.Tip="The compliance officer. Numbered demos keep this user's request identical so the protection change is the independent variable.">
+                    <StackPanel>
+                      <TextBlock Text="HUMAN" Classes="eyebrow" />
+                      <TextBlock Text="Compliance officer" Classes="heading" Margin="0,4,0,0" />
+                      <TextBlock Text="Asks the same question in every numbered demo" Classes="muted" FontSize="9" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                  <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="REQUEST  ━━━━━▶" Classes="flow" Foreground="{Binding UserAgentRoute}" />
+                    <TextBlock Text="◀━━━━━  ANSWER" Classes="flow" Foreground="{Binding UserAgentRoute}" />
+                  </StackPanel>
+                  <Border Grid.Column="2" Classes="node" BorderBrush="{Binding UserAgentRoute}" BorderThickness="2"
+                          ToolTip.Tip="PartnerDesk orchestrates model turns and tool calls. Proposed calls are captured before Gatekeeper can block them.">
+                    <StackPanel>
+                      <TextBlock Text="ORCHESTRATOR" Classes="eyebrow" />
+                      <TextBlock Text="PartnerDesk agent" Classes="heading" FontSize="14" Margin="0,4,0,0" />
+                      <TextBlock Text="{Binding AgentStatus}" Foreground="#82B6FF" FontSize="10" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                  <StackPanel Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="CONTEXT  ━━━━━▶" Classes="flow" Foreground="{Binding AgentModelRoute}" />
+                    <TextBlock Text="◀━━━━━  ACTION" Classes="flow" Foreground="{Binding AgentModelRoute}" />
+                  </StackPanel>
+                  <Border Grid.Column="4" Classes="node" BorderBrush="{Binding AgentModelRoute}"
+                          ToolTip.Tip="The deterministic offline model replays known trajectories for a repeatable stage demo. Hidden reasoning is never displayed.">
+                    <StackPanel>
+                      <TextBlock Text="MODEL" Classes="eyebrow" />
+                      <TextBlock Text="Scripted offline provider" Classes="heading" Margin="0,4,0,0" />
+                      <TextBlock Text="Emits next actions; hidden chain-of-thought is never displayed" Classes="muted" FontSize="9" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </Grid>
+              </Border>
+
+              <!-- Gates are physically inline with their protected destinations -->
+              <Border Background="#0B1220" BorderBrush="#22314A" BorderThickness="1" CornerRadius="8" Padding="14">
+                <Grid ColumnDefinitions="180,128,170,128,*"
+                      RowDefinitions="Auto,86,86,86">
+                  <TextBlock Grid.ColumnSpan="5" Text="TOOL ROUTES · POLICY ENFORCEMENT IS INLINE BEFORE EACH DESTINATION"
+                             Classes="eyebrow" Margin="0,0,0,10" />
+                  <Border Grid.Row="1" Grid.RowSpan="3" Classes="node" BorderBrush="#4E6A94" VerticalAlignment="Stretch"
+                          ToolTip.Tip="The agent's tool dispatcher. Every model-proposed call is journaled here before the inline policy gate decides whether it may execute.">
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="PARTNERDESK" Classes="eyebrow" />
+                      <TextBlock Text="Agent tool dispatcher" Classes="heading" Margin="0,5,0,0" />
+                      <TextBlock Text="Proposed calls are captured before any gate" Classes="muted" FontSize="9" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    </StackPanel>
+                  </Border>
+
+                  <StackPanel Grid.Row="1" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding McpRoute}" />
+                    <TextBlock Text="◀━━━━━  RESULT" Classes="flow" Foreground="{Binding McpRoute}" />
+                  </StackPanel>
+                  <Border Grid.Row="1" Grid.Column="2" Background="#172238" BorderBrush="{Binding McpRoute}" BorderThickness="1" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                          ToolTip.Tip="Result admission inspects the MCP response before model context. Containment refuses later calls after an operator records the hostile source.">
+                    <StackPanel>
+                      <TextBlock Text="{Binding ResultGateLabel}" Foreground="{Binding McpRoute}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
+                      <TextBlock Text="{Binding ContainmentLabel}" Foreground="#91A4C1" FontSize="8" HorizontalAlignment="Center" Margin="0,3,0,0" />
+                    </StackPanel>
+                  </Border>
+                  <StackPanel Grid.Row="1" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="ADMIT  ━━━━━▶" Classes="flow" Foreground="{Binding McpRoute}" />
+                    <TextBlock Text="◀━━━━━  INSPECT" Classes="flow" Foreground="{Binding McpRoute}" />
+                  </StackPanel>
+                  <Border Grid.Row="1" Grid.Column="4" Classes="node" BorderBrush="{Binding McpAccent}"
+                          ToolTip.Tip="A genuine MCP server in a child process over stdio. Evil mode changes the supplier response; no network service is contacted.">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel>
+                        <TextBlock Text="REAL MCP BOUNDARY" Classes="eyebrow" />
+                        <TextBlock Text="PartnerIntel · stdio child process" Classes="heading" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding McpStatus}" Foreground="{Binding McpAccent}" FontSize="9" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Text="MCP" Foreground="{Binding McpAccent}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" />
+                    </Grid>
+                  </Border>
+
+                  <StackPanel Grid.Row="2" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding DatabaseRoute}" />
+                    <TextBlock Text="◀━━━━━  ROWS" Classes="flow" Foreground="{Binding DatabaseRoute}" />
+                  </StackPanel>
+                  <Border Grid.Row="2" Grid.Column="2" Background="#172238" BorderBrush="{Binding DatabaseRoute}" BorderThickness="1" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                          ToolTip.Tip="Database scope gate: permits one named partner lookup and blocks bulk register reads before execution.">
+                    <TextBlock Text="{Binding DatabaseGateLabel}" Foreground="{Binding DatabaseRoute}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Row="2" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="ALLOW  ━━━━━▶" Classes="flow" Foreground="{Binding DatabaseRoute}" />
+                    <TextBlock Text="◀━━━━━  EFFECT" Classes="flow" Foreground="{Binding DatabaseRoute}" />
+                  </StackPanel>
+                  <Border Grid.Row="2" Grid.Column="4" Classes="node" BorderBrush="{Binding DatabaseNodeAccent}"
+                          ToolTip.Tip="A local synthetic partner register. Red means a bulk-read effect actually executed; green means no unsafe read executed.">
+                    <StackPanel>
+                      <TextBlock Text="LOCAL FAKE TOOL" Classes="eyebrow" />
+                      <TextBlock Text="Partner database" Classes="heading" Margin="0,4,0,0" />
+                      <TextBlock Text="{Binding DatabaseStatus}" Foreground="{Binding DatabaseNodeAccent}" FontSize="10" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+
+                  <StackPanel Grid.Row="3" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding EmailRoute}" />
+                    <TextBlock Text="◀━━━━━  RECEIPT" Classes="flow" Foreground="{Binding EmailRoute}" />
+                  </StackPanel>
+                  <Border Grid.Row="3" Grid.Column="2" Background="#172238" BorderBrush="{Binding EmailRoute}" BorderThickness="1" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                          ToolTip.Tip="Recipient gate: permits the firm's internal email domain and blocks external recipients before execution.">
+                    <TextBlock Text="{Binding EmailGateLabel}" Foreground="{Binding EmailRoute}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Row="3" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="ALLOW  ━━━━━▶" Classes="flow" Foreground="{Binding EmailRoute}" />
+                    <TextBlock Text="◀━━━━━  EFFECT" Classes="flow" Foreground="{Binding EmailRoute}" />
+                  </StackPanel>
+                  <Border Grid.Row="3" Grid.Column="4" Classes="node" BorderBrush="{Binding EmailNodeAccent}"
+                          ToolTip.Tip="A local fake outbox. It never sends SMTP mail. Red means an external-recipient effect executed; green means none executed.">
+                    <StackPanel>
+                      <TextBlock Text="LOCAL FAKE TOOL" Classes="eyebrow" />
+                      <TextBlock Text="Email outbox" Classes="heading" Margin="0,4,0,0" />
+                      <TextBlock Text="{Binding EmailStatus}" Foreground="{Binding EmailNodeAccent}" FontSize="10" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <!-- First-release A/B surface -->
+          <Border Classes="card" IsVisible="{Binding IsComparisonVisible}">
+            <StackPanel Spacing="10">
+              <TextBlock Text="A/B SECURITY EXPERIMENT · SAME REQUEST, DIFFERENT PROTECTION" Classes="eyebrow" />
+              <Grid ColumnDefinitions="*,10,*">
+                <Border Background="#25131A" BorderBrush="#71313E" BorderThickness="1" CornerRadius="8" Padding="12">
+                  <StackPanel>
+                    <TextBlock Text="WITHOUT GATEKEEPER" Foreground="#FF7C8C" FontSize="10" FontWeight="Bold" />
+                    <TextBlock Text="{Binding ComparisonWithout}" Classes="heading" Margin="0,5,0,0" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Background="#10251E" BorderBrush="#285B48" BorderThickness="1" CornerRadius="8" Padding="12">
+                  <StackPanel>
+                    <TextBlock Text="WITH FULL GATEKEEPER" Foreground="#55DF9D" FontSize="10" FontWeight="Bold" />
+                    <TextBlock Text="{Binding ComparisonWith}" Classes="heading" Margin="0,5,0,0" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+              <TextBlock Text="{Binding ComparisonDelta}" Foreground="#B9C7D9" TextWrapping="Wrap" FontSize="11" />
+            </StackPanel>
+          </Border>
+
+          <!-- Event inspector and pure replay -->
+          <Border Classes="card">
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="SELECTED EVENT" Classes="eyebrow" />
+                <TextBlock Text="{Binding SelectedEvent.Title, FallbackValue=Select an AI Event to inspect it}"
+                           Classes="heading" FontSize="14" Margin="0,4,0,0" />
+                <TextBlock Text="{Binding SelectedEvent.Route}" Foreground="#72A7E9" FontSize="10" Margin="0,3,0,0" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                <Button Content="↺ Start" Command="{Binding ReplayRestartCommand}" />
+                <Button Content="◀ Previous" Command="{Binding ReplayPreviousCommand}" />
+                <Button Content="Next ▶" Command="{Binding ReplayNextCommand}" />
+              </StackPanel>
+              <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="1.25*,*" Margin="0,10,0,0">
+                <Border Background="#0B1220" CornerRadius="7" Padding="10">
+                  <TextBlock Text="{Binding SelectedEvent.Detail, FallbackValue=Run the selected demo to populate the ordered timeline.}"
+                             Foreground="#B6C1D3" TextWrapping="Wrap" FontSize="10" />
+                </Border>
+                <Border Grid.Column="1" Background="#0B1220" CornerRadius="7" Padding="10" Margin="8,0,0,0">
+                  <StackPanel>
+                    <TextBlock Text="BOUNDED PAYLOAD PREVIEW" Classes="eyebrow" />
+                    <TextBlock Text="{Binding SelectedEvent.Payload, FallbackValue=No payload selected.}"
+                               Foreground="#A8B9D0" TextWrapping="Wrap" FontFamily="Cascadia Mono, Consolas" FontSize="9" MaxHeight="86" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Grid>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <GridSplitter Grid.Column="1" Background="#26334A" ResizeDirection="Columns" />
+
+      <!-- Story first; debug on demand -->
+      <Border Grid.Column="2" Classes="card" Padding="10">
+        <Grid RowDefinitions="Auto,*">
+          <Grid Margin="4,2,4,7" ColumnDefinitions="*,Auto">
+            <StackPanel>
+              <TextBlock Text="AI EVENTS" Classes="eyebrow" />
+              <TextBlock Text="What the audience needs to understand" Classes="heading" FontSize="14" Margin="0,3,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+              <TextBlock Text="{Binding PresentationModeLabel}" Foreground="#58C8FF" FontSize="9" FontWeight="Bold" HorizontalAlignment="Right" />
+              <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,5,0,0">
+                <CheckBox Content="Audience pacing" IsChecked="{Binding AudiencePacing}" FontSize="9" />
+                <CheckBox Content="Follow latest" IsChecked="{Binding AutoFollowEvents}" FontSize="9" />
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+          <TabControl Grid.Row="1">
+            <TabItem Header="Story">
+              <Grid RowDefinitions="Auto,*">
+                <Border Background="#102139" CornerRadius="6" Padding="9" Margin="0,4,0,8">
+                  <TextBlock Text="Curated semantic events. Select one to freeze its route and inspect its evidence."
+                             Foreground="#9DB6D7" FontSize="9" TextWrapping="Wrap" />
+                </Border>
+                <ListBox x:Name="StoryList"
+                         Grid.Row="1"
+                         ItemsSource="{Binding StoryEvents}"
+                         SelectedItem="{Binding SelectedEvent}"
+                         ItemTemplate="{StaticResource EventTemplate}"
+                         Background="Transparent"
+                         BorderThickness="0" />
+                <StackPanel Grid.Row="1"
+                            IsVisible="{Binding IsStoryEmpty}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MaxWidth="280">
+                  <TextBlock Text="Select a demo, then press Run" Foreground="#9FB0C8" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                  <TextBlock Text="1 Choose a numbered demo · 2 optionally customize it · 3 review the request and run. The ordered story will appear here."
+                             Foreground="#657791" FontSize="10" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" />
+                </StackPanel>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Security">
+              <Grid RowDefinitions="Auto,*">
+                <Border Background="#2B171D" BorderBrush="#69303C" BorderThickness="1" CornerRadius="6" Padding="9" Margin="0,4,0,8">
+                  <TextBlock Text="Untrusted input, risky intent, blocked operations, withheld results, and failures only."
+                             Foreground="#F2A5AE" FontSize="9" TextWrapping="Wrap" />
+                </Border>
+                <ListBox x:Name="SecurityList"
+                         Grid.Row="1"
+                         ItemsSource="{Binding SecurityEvents}"
+                         SelectedItem="{Binding SelectedEvent}"
+                         ItemTemplate="{StaticResource EventTemplate}"
+                         Background="Transparent"
+                         BorderThickness="0" />
+                <StackPanel Grid.Row="1"
+                            IsVisible="{Binding IsSecurityEmpty}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MaxWidth="280">
+                  <TextBlock Text="No security events yet" Foreground="#9FB0C8" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                  <TextBlock Text="Untrusted input, risky intent, and Gatekeeper decisions are isolated here."
+                             Foreground="#657791" FontSize="10" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" />
+                </StackPanel>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Debug">
+              <Grid RowDefinitions="Auto,*">
+                <Border Background="#151B28" CornerRadius="6" Padding="9" Margin="0,4,0,8">
+                  <TextBlock Text="Full ordered stream plus imported runtime narration and exceptions."
+                             Foreground="#9EABC0" FontSize="9" TextWrapping="Wrap" />
+                </Border>
+                <ListBox x:Name="DebugList"
+                         Grid.Row="1"
+                         ItemsSource="{Binding DebugEvents}"
+                         SelectedItem="{Binding SelectedEvent}"
+                         ItemTemplate="{StaticResource EventTemplate}"
+                         Background="Transparent"
+                         BorderThickness="0" />
+                <StackPanel Grid.Row="1"
+                            IsVisible="{Binding IsDebugEmpty}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MaxWidth="280">
+                  <TextBlock Text="Debug stream is empty" Foreground="#9FB0C8" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                  <TextBlock Text="Runtime narration and exceptions will remain behind this on-demand view."
+                             Foreground="#657791" FontSize="10" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" />
+                </StackPanel>
+              </Grid>
+            </TabItem>
+            <TabItem Header=".Evals">
+              <Grid RowDefinitions="Auto,110,*">
+                <Border Background="#10251E" BorderBrush="#285B48" BorderThickness="1" CornerRadius="6" Padding="9" Margin="0,4,0,8">
+                  <StackPanel>
+                    <TextBlock Text="IMPORTED EVALUATION PROJECT" Foreground="#55DF9D" FontSize="9" FontWeight="Bold" />
+                    <TextBlock Text="{Binding EvaluationStatus}" Foreground="#B5CBBF" FontSize="9" TextWrapping="Wrap" Margin="0,3,0,0" />
+                  </StackPanel>
+                </Border>
+                <ListBox x:Name="EvaluationProgressList" Grid.Row="1" ItemsSource="{Binding EvaluationProgress}" Background="#0B1220" BorderThickness="0" Margin="0,0,0,8">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding}" Foreground="#8DA2BF" FontFamily="Cascadia Mono, Consolas" FontSize="9" TextWrapping="Wrap" Margin="6,2" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBox Grid.Row="2"
+                         Text="{Binding EvaluationReport}"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         FontFamily="Cascadia Mono, Consolas"
+                         FontSize="9"
+                         Background="#080D16"
+                         Foreground="#AAB8CD"
+                         BorderBrush="#263550" />
+              </Grid>
+            </TabItem>
+          </TabControl>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="3" Background="#090F1A" BorderBrush="#202C41" BorderThickness="0,1,0,0" Padding="14,7">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="DEMO DISCLOSURE · Deterministic offline model trajectory; genuine MCP child process and shipped Gatekeeper; database/email effects are local fakes."
+                   Foreground="#74839B" FontSize="9" />
+        <TextBlock Grid.Column="1" Text="No hidden chain-of-thought is displayed · payload previews are bounded"
+                   Foreground="#52627A" FontSize="9" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

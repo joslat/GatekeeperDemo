@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+.tmp/
+artifacts/
+TestResults/
+*.user
+*.log
+outbox/
+runs/
