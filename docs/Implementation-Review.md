@@ -60,8 +60,9 @@ paths. The audit produced the following concrete corrections:
 
 ## Deliberate boundaries
 
-- Live Azure OpenAI remains available in the imported console sample, but the control-room first release uses the
-  deterministic trajectory so stage behavior is repeatable and does not need credentials.
+- The control room defaults to the deterministic trajectory for repeatable, credential-free presentation. Its
+  explicitly labeled Live mode mirrors the reference code's `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and
+  `AZURE_OPENAI_DEPLOYMENT` inputs and offers only the demo's three fixed deployment names.
 - “Turn by turn” is pure presentation replay after a completed real run. Pausing the protected execution inside an
   observer would let visualization timing alter the system being demonstrated, so it is intentionally avoided.
 - Artifact export/import APIs are implemented in Core; the first desktop surface replays the most recent run in
@@ -69,7 +70,6 @@ paths. The audit produced the following concrete corrections:
 
 ## Residual follow-ups
 
-- Add an optional live-provider profile with explicit credential readiness and a prominent nondeterministic label.
 - Add export/import buttons around the existing integrity-checked artifact API.
 - Add automated pixel snapshots for multiple DPI/theme combinations if the UI becomes productized beyond the
   Windows-first demo target.

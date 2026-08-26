@@ -5,6 +5,11 @@ ordered: **Step 1 · Choose a demo**, optionally use **Step 2 · Customize**, th
 Keep the **Story** tab selected for the numbered demos; open **Security** to investigate a red/amber event and **Debug** only when explaining the
 underlying runtime.
 
+Use **Scripted model · repeatable** for the canonical presenter sequence. If Azure credentials are configured,
+choose an **Azure OpenAI · &lt;deployment&gt;** entry afterward and frame it as an experiment: the live model may resist
+or follow the attack, so the UI labels it nondeterministic and records the selected deployment with the run. When
+the three reference environment variables are present, their matching Azure deployment is preselected at startup.
+
 ## Demo 1 — establish trust
 
 Select **1 · Clean baseline**, then **Run selected demo**.
@@ -55,3 +60,17 @@ unselected route remains unprotected.
 
 After a completed demo, use **Previous** and **Next** under the graph. The selected route lights and its bounded
 payload preview appears in the inspector. The header explicitly says this is pure replay; no tools execute again.
+
+The `EVENT nnn` label over the graph is synchronized with the selected AI Events card. Keep **Follow latest** on
+while presenting live; turn it off or click a card to freeze its component, directional connectors, and active gate.
+Starting a new demo clears the preceding timeline, replay state, tool summaries, and highlights before event 001.
+
+Each gate has a dedicated shield rail on its incoming side. On an enforced block or withheld result, that shield
+pulses amber and its run-local badge advances from `0` to `1`, `2`, and so on. The shield is deliberately outside
+the gate capsule so it never covers the policy label. All shield counts return to zero at the start of the next run.
+
+Cards with retained content have a **▶** control in their header. Expand **MODEL INPUT** to show the visible prompt,
+tool list, and conversation sent to the provider; expand **MODEL OUTPUT** to reveal assistant text or its requested
+tool calls. **TOOL RESPONSE** is especially useful when showing the hostile MCP addendum arrive. Keep only the card
+you are narrating expanded, then collapse it with **▼** before advancing. The view is a bounded observable preview;
+it never claims to display private chain-of-thought or credentials.

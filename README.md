@@ -9,13 +9,18 @@ debug narration, and the imported `.Evals` report.
 
 ## Run it
 
-Requirements: Windows, .NET SDK 10, and a desktop session. The default path is deterministic and offline; it does
-not require model credentials.
+Requirements: Windows, .NET SDK 10, and a desktop session. Without model credentials the default path is
+deterministic and offline. One **Model** dropdown selects either that scripted path or an exact Azure OpenAI
+deployment.
+
+Double-click `start.cmd`, or run:
 
 ```powershell
-dotnet restore GatekeeperDemo.slnx
-dotnet run --project src\GatekeeperDemo.App\GatekeeperDemo.App.csproj
+.\start.ps1
 ```
+
+The launcher restores packages and starts the Release build. Use `.\start.ps1 -NoRestore` for a faster subsequent
+launch. The equivalent manual `dotnet` commands are documented in the [user guide](docs/User-Guide.md).
 
 Use the guided strip from left to right: choose one of the four numbered demos, optionally customize Evil MCP and
 Gatekeeper, review the request, then press **Run selected demo**. The purple **Compare demos 2 ↔ 4 · A/B** action
@@ -28,13 +33,21 @@ The default user request is kept identical across the numbered demos. You can ed
 MCP switch and Gatekeeper master/individual gates create a custom run; containment automatically enables its
 required result-admission evidence source.
 
+For a live run, set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_DEPLOYMENT` before launching.
+When the deployment matches one of the three fixed entries, the app preselects **Azure OpenAI · &lt;deployment&gt;**
+just like the reference console selects Live mode. Live model output and attack compliance are nondeterministic;
+the database and email effects remain safe local fakes. The single dropdown contains the demo's measured
+`gpt-5.5`, `gpt-5-mini`, and `gpt-5-chat` deployments. See the [user guide](docs/User-Guide.md) for exact
+setup, measured behavior, and disclosure.
+
 ## What is real and what is simulated
 
 - Real: the PartnerIntel server is a child process speaking MCP over stdio.
 - Real: the imported PartnerDesk agent, AgentEval Gatekeeper middleware, gates, evidence, and containment store.
 - Real: the model's proposed tool calls are captured before Gatekeeper and compared with what executed.
-- Deterministic: the default offline model trajectory is scripted. It proves gate behavior, not that every model
+- Deterministic by default: the offline model trajectory is scripted. It proves gate behavior, not that every model
   will follow the hostile addendum.
+- Optional live model: the same GUI pipeline can call a configured Azure OpenAI deployment; its decisions vary.
 - Simulated: database reads use a synthetic in-memory register; email writes only to a run-local fake outbox.
 - Not shown: private model chain-of-thought. “Agent working” means an observable request is in flight, not that
   hidden reasoning was captured.
@@ -54,7 +67,8 @@ for display and replay artifacts; email bodies are not retained by the effect le
 - `tests/GatekeeperDemo.Core.Tests` — GUI-driven runtime, custom-gate, artifact, replay, and Evals integration.
 - `tests/GatekeeperDemo.App.Tests` — control-room state, validation, selection, and audience-label regressions.
 
-See [architecture](docs/Architecture.md), [presenter runbook](docs/Presenter-Runbook.md), and the
+See the [demo summary](docs/Demo-Summary.md), [user guide](docs/User-Guide.md),
+[architecture](docs/Architecture.md), [presenter runbook](docs/Presenter-Runbook.md), and
 [implementation review](docs/Implementation-Review.md).
 
 ## Verify

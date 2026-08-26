@@ -33,6 +33,28 @@ public sealed class ControlRoomTests
     }
 
     [Fact]
+    public void ModelConfigurations_ValidateAndNeverExposeTheApiKey()
+    {
+        var scripted = PartnerDeskModelConfiguration.Scripted;
+        Assert.Empty(scripted.Validate());
+        Assert.True(scripted.Descriptor.Deterministic);
+
+        var incomplete = PartnerDeskModelConfiguration.AzureOpenAI(null, null, null);
+        Assert.Equal(3, incomplete.Validate().Count);
+
+        const string secret = "not-a-real-secret";
+        var live = PartnerDeskModelConfiguration.AzureOpenAI(
+            "https://example.openai.azure.com/",
+            secret,
+            "gpt-live-demo");
+        Assert.Empty(live.Validate());
+        Assert.False(live.Descriptor.Deterministic);
+        Assert.Equal("gpt-live-demo", live.Descriptor.Deployment);
+        Assert.DoesNotContain(secret, live.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(secret, live.AudienceDisclosure(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CompromisedScene_RecordsLiveRiskAndActualUnsafeEffects()
     {
         await using var coordinator = new PartnerDeskRunCoordinator();
@@ -47,6 +69,11 @@ public sealed class ControlRoomTests
         Assert.Equal(1, result.Evidence.ExecutedBulkReads);
         Assert.Equal(1, result.Evidence.ExecutedExternalEmails);
         Assert.Contains(store.Snapshot(), item =>
+            item.Kind == PartnerDeskRuntimeEventKind.ModelProviderSelected
+            && item.Detail.Contains("fixed and repeatable", StringComparison.Ordinal));
+        Assert.True(result.Artifact.ModelExecution.Deterministic);
+        Assert.Equal(PartnerDeskModelMode.Scripted, result.Artifact.ModelExecution.Mode);
+        Assert.Contains(store.Snapshot(), item =>
             item.Kind == PartnerDeskRuntimeEventKind.ToolProposed
             && item.Disposition == PartnerDeskRuntimeDisposition.Risky);
         Assert.Contains(store.Snapshot(), item =>
@@ -60,6 +87,30 @@ public sealed class ControlRoomTests
             item.Kind == PartnerDeskRuntimeEventKind.ToolExecutionStarted
             && item.Target == "send_email"
             && item.Disposition == PartnerDeskRuntimeDisposition.Risky);
+
+        var events = store.Snapshot();
+        var modelInputs = events
+            .Where(item => item.Kind == PartnerDeskRuntimeEventKind.ModelRequestStarted)
+            .ToArray();
+        Assert.NotEmpty(modelInputs);
+        Assert.All(modelInputs, item =>
+        {
+            Assert.Contains("[SYSTEM INSTRUCTIONS]", item.PayloadPreview, StringComparison.Ordinal);
+            Assert.Contains("[AVAILABLE TOOLS]", item.PayloadPreview, StringComparison.Ordinal);
+            Assert.Contains(Question, item.PayloadPreview, StringComparison.Ordinal);
+        });
+        Assert.Contains(events, item =>
+            item.Kind == PartnerDeskRuntimeEventKind.ModelResponseReceived
+            && item.PayloadPreview?.Contains(
+                "TOOL CALL: get_company_report",
+                StringComparison.Ordinal) == true);
+        Assert.Contains(events, item =>
+            item.Kind == PartnerDeskRuntimeEventKind.ToolCompleted
+            && item.Source == "mcp"
+            && !string.IsNullOrWhiteSpace(item.PayloadPreview));
+        Assert.All(
+            events.Where(item => item.PayloadPreview is not null),
+            item => Assert.True(item.PayloadPreview!.Length <= 6030));
     }
 
     [Fact]
@@ -144,6 +195,7 @@ public sealed class ControlRoomTests
         var roundTrip = RunArtifact.FromJson(result.Artifact.ToJson());
         Assert.True(roundTrip.VerifyIntegrity());
         Assert.Equal(result.Artifact.Events.Count, roundTrip.Events.Count);
+        Assert.Equal(result.Artifact.ModelExecution, roundTrip.ModelExecution);
         Assert.DoesNotContain(roundTrip.Events, item => item.Kind == PartnerDeskRuntimeEventKind.Diagnostic);
 
         var tampered = roundTrip with { Answer = roundTrip.Answer + " changed" };

@@ -1,4 +1,5 @@
 using AgentEval.PartnerDeskDemo.Demo;
+using AgentEval.PartnerDeskDemo.Tools;
 using GatekeeperDemo.App.ViewModels;
 using GatekeeperDemo.Core;
 using Xunit;
@@ -10,13 +11,97 @@ public sealed class ViewModelTests
     [Fact]
     public async Task DefaultScene_IsVisiblySelectedAndRunnable()
     {
-        await using var viewModel = new MainWindowViewModel();
+        await using var viewModel = new MainWindowViewModel(null, null, null);
 
         Assert.True(viewModel.IsCleanPresetSelected);
         Assert.False(viewModel.IsCompromisedPresetSelected);
         Assert.True(viewModel.IsConfigurationValid);
         Assert.True(viewModel.RunCommand.CanExecute(null));
         Assert.Contains("Demo 1 selected", viewModel.ConfigurationNotice, StringComparison.Ordinal);
+        Assert.Equal(0, viewModel.SelectedModelIndex);
+        Assert.Contains("SCRIPTED", viewModel.ModelModeBadge, StringComparison.Ordinal);
+        Assert.Contains("no credentials", viewModel.ModelReadinessText, StringComparison.Ordinal);
+        Assert.Null(viewModel.AzureDeployment);
+        Assert.True(viewModel.IsSetupExpanded);
+        Assert.Contains("Demo 1", viewModel.SetupSelectionSummary, StringComparison.Ordinal);
+        Assert.Contains("Scripted", viewModel.SetupSelectionSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SetupPanel_CanCollapseWithoutChangingTheSelectedRun()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null);
+        var summary = viewModel.SetupSelectionSummary;
+
+        viewModel.IsSetupExpanded = false;
+
+        Assert.False(viewModel.IsSetupExpanded);
+        Assert.Equal(summary, viewModel.SetupSelectionSummary);
+        Assert.Contains("EDIT MODEL", viewModel.SetupPanelAction, StringComparison.Ordinal);
+        Assert.True(viewModel.RunCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task LiveModelWithoutEnvironment_IsExplainedAndCannotRun()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null)
+        {
+            SelectedModelIndex = 1,
+        };
+
+        Assert.True(viewModel.IsAzureOpenAiSelected);
+        Assert.False(viewModel.IsConfigurationValid);
+        Assert.False(viewModel.RunCommand.CanExecute(null));
+        Assert.Contains("AZURE_OPENAI_ENDPOINT", viewModel.ModelReadinessText, StringComparison.Ordinal);
+        Assert.Contains("Model blocked", viewModel.ConfigurationNotice, StringComparison.Ordinal);
+        Assert.True(viewModel.IsCleanPresetSelected);
+    }
+
+    [Fact]
+    public async Task ReadyLiveModel_ShowsDeploymentAndNondeterministicDisclosure()
+    {
+        await using var viewModel = new MainWindowViewModel(
+            "https://example.openai.azure.com/",
+            "not-a-real-secret",
+            "gpt-5.5");
+
+        Assert.Equal(1, viewModel.SelectedModelIndex);
+        Assert.True(viewModel.IsConfigurationValid);
+        Assert.True(viewModel.RunCommand.CanExecute(null));
+        Assert.Contains("gpt-5.5", viewModel.ModelNodeTitle, StringComparison.Ordinal);
+        Assert.Contains("NONDETERMINISTIC", viewModel.ModelModeBadge, StringComparison.Ordinal);
+        Assert.Contains("output is nondeterministic", viewModel.ModelDisclosure, StringComparison.Ordinal);
+        Assert.True(viewModel.IsCleanPresetSelected);
+    }
+
+    [Fact]
+    public async Task SingleModelDropdown_UpdatesTheExactExecutionModeAndDeployment()
+    {
+        await using var viewModel = new MainWindowViewModel(
+            "https://example.openai.azure.com/",
+            "not-a-real-secret",
+            null);
+
+        Assert.Equal(0, viewModel.SelectedModelIndex);
+        viewModel.SelectedModelIndex = 2;
+
+        Assert.Equal("gpt-5-mini", viewModel.AzureDeployment);
+        Assert.Contains("measured 5/5", viewModel.ModelSelectionEvidence, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("gpt-5-mini", viewModel.ModelReadinessText, StringComparison.Ordinal);
+        Assert.True(viewModel.IsConfigurationValid);
+    }
+
+    [Fact]
+    public async Task ReferenceEnvironment_PreselectsItsHardcodedAzureDeployment()
+    {
+        await using var viewModel = new MainWindowViewModel(
+            "https://example.openai.azure.com/",
+            "not-a-real-secret",
+            "gpt-5-chat");
+
+        Assert.Equal(3, viewModel.SelectedModelIndex);
+        Assert.Equal("gpt-5-chat", viewModel.AzureDeployment);
+        Assert.True(viewModel.IsAzureOpenAiSelected);
     }
 
     [Fact]
@@ -66,6 +151,29 @@ public sealed class ViewModelTests
     }
 
     [Fact]
+    public async Task ToolGatesPreset_BrightensOnlyDatabaseAndEmailBeforeDetectAndContainEnablesMcp()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null);
+
+        viewModel.Level1PresetCommand.Execute(null);
+
+        Assert.Equal(1, viewModel.DatabaseGateOpacity);
+        Assert.Equal(1, viewModel.EmailGateOpacity);
+        Assert.Equal(0.52, viewModel.McpGateOpacity);
+        Assert.Equal(viewModel.DatabaseGateSurface, viewModel.EmailGateSurface);
+        Assert.NotEqual(viewModel.DatabaseGateSurface, viewModel.McpGateSurface);
+        Assert.Contains("RESULT ADMISSION · OFF", viewModel.ResultGateLabel, StringComparison.Ordinal);
+
+        viewModel.Level2PresetCommand.Execute(null);
+
+        Assert.Equal(1, viewModel.DatabaseGateOpacity);
+        Assert.Equal(1, viewModel.EmailGateOpacity);
+        Assert.Equal(1, viewModel.McpGateOpacity);
+        Assert.Equal(viewModel.DatabaseGateSurface, viewModel.McpGateSurface);
+        Assert.Contains("RESULT ADMISSION · ON", viewModel.ResultGateLabel, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnswerEvent_IsAnObservationRatherThanASafetyVerdict()
     {
         var runtimeEvent = new ControlRoomEvent(
@@ -109,4 +217,212 @@ public sealed class ViewModelTests
 
         Assert.Equal("MODEL", new EventItemViewModel(runtimeEvent).Badge);
     }
+
+    [Fact]
+    public void MessageEvent_ExposesAnIndependentExpandablePayload()
+    {
+        var runtimeEvent = new ControlRoomEvent(
+            Guid.NewGuid(),
+            4,
+            TimeSpan.FromMilliseconds(30),
+            DateTimeOffset.UtcNow,
+            PartnerDeskRuntimeEventKind.ModelResponseReceived,
+            "model",
+            "agent",
+            "Model response",
+            "Response received.",
+            PartnerDeskRuntimeDisposition.Neutral,
+            "[ASSISTANT]\nTOOL CALL: get_company_report",
+            null,
+            null);
+        var item = new EventItemViewModel(runtimeEvent);
+
+        Assert.True(item.HasExpandableContent);
+        Assert.False(item.IsExpanded);
+        Assert.True(item.IsCollapsed);
+        Assert.True(item.IsExpandControlVisible);
+        Assert.Equal("▶  MODEL OUTPUT", item.ExpandControlText);
+        Assert.True(item.ToggleExpandedCommand.CanExecute(null));
+
+        item.ToggleExpandedCommand.Execute(null);
+
+        Assert.True(item.IsExpanded);
+        Assert.False(item.IsCollapsed);
+        Assert.False(item.IsExpandControlVisible);
+        Assert.Equal("▼  MODEL OUTPUT", item.ExpandControlText);
+        Assert.Contains("get_company_report", item.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EventWithoutRetainedPayload_HidesAndDisablesTheExpander()
+    {
+        var item = new EventItemViewModel(Event(
+            5,
+            PartnerDeskRuntimeEventKind.AgentWorking,
+            "agent",
+            "model",
+            "Agent working",
+            PartnerDeskRuntimeDisposition.Neutral));
+
+        Assert.False(item.HasExpandableContent);
+        Assert.False(item.IsExpandControlVisible);
+        Assert.False(item.ToggleExpandedCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task SelectedToolEvent_HighlightsOnlyItsCurrentComponentsAndSegments()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null);
+        viewModel.Level1PresetCommand.Execute(null);
+
+        var executionStarted = Event(
+            11,
+            PartnerDeskRuntimeEventKind.ToolExecutionStarted,
+            "agent",
+            PartnerDatabaseTool.ToolName,
+            "Partner lookup working",
+            PartnerDeskRuntimeDisposition.Safe);
+        viewModel.SelectedEvent = new EventItemViewModel(executionStarted);
+
+        Assert.Contains("EVENT 011", viewModel.WorkflowFocusText, StringComparison.Ordinal);
+        Assert.Equal(viewModel.DatabaseCallRoute, viewModel.DatabaseGateAccent);
+        Assert.Equal(viewModel.DatabaseCallRoute, viewModel.DatabaseAllowRoute);
+        Assert.Equal(viewModel.DatabaseCallRoute, viewModel.DatabaseNodeAccent);
+        Assert.Equal(viewModel.DatabaseCallRoute, viewModel.DispatcherNodeAccent);
+        Assert.NotEqual(viewModel.DatabaseCallRoute, viewModel.DatabaseEffectRoute);
+        Assert.NotEqual(viewModel.DatabaseCallRoute, viewModel.EmailCallRoute);
+
+        var completed = Event(
+            12,
+            PartnerDeskRuntimeEventKind.ToolCompleted,
+            PartnerDatabaseTool.ToolName,
+            "agent",
+            "Partner lookup executed",
+            PartnerDeskRuntimeDisposition.Safe);
+        viewModel.SelectedEvent = new EventItemViewModel(completed);
+
+        Assert.Equal(viewModel.DatabaseNodeAccent, viewModel.DatabaseEffectRoute);
+        Assert.Equal(viewModel.DatabaseNodeAccent, viewModel.DatabaseRowsRoute);
+        Assert.NotEqual(viewModel.DatabaseNodeAccent, viewModel.DatabaseCallRoute);
+        Assert.Equal("Partner lookup executed", viewModel.DatabaseStatus);
+    }
+
+    [Fact]
+    public async Task PreparingANewRun_ReplacesTheTimelineAndResetsEveryWorkflowSurface()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null);
+        var previous = Event(
+            19,
+            PartnerDeskRuntimeEventKind.ToolCompleted,
+            EmailTool.ToolName,
+            "agent",
+            "Internal email effect executed",
+            PartnerDeskRuntimeDisposition.Safe);
+        var previousItem = new EventItemViewModel(previous);
+        viewModel.StoryEvents.Add(previousItem);
+        viewModel.DebugEvents.Add(previousItem);
+        viewModel.SecurityEvents.Add(previousItem);
+        viewModel.SelectedEvent = previousItem;
+        viewModel.AutoFollowEvents = false;
+
+        viewModel.PrepareRunPresentation(
+            PartnerDeskRunConfiguration.ForPhase(DemoPhase.Clean),
+            clearEvents: true);
+
+        Assert.Empty(viewModel.StoryEvents);
+        Assert.Empty(viewModel.DebugEvents);
+        Assert.Empty(viewModel.SecurityEvents);
+        Assert.Null(viewModel.SelectedEvent);
+        Assert.True(viewModel.AutoFollowEvents);
+        Assert.Contains("Waiting", viewModel.WorkflowFocusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("new run", viewModel.DatabaseStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("new run", viewModel.EmailStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(viewModel.HumanNodeAccent, viewModel.EmailNodeAccent);
+        Assert.Equal(viewModel.UserRequestRoute, viewModel.EmailEffectRoute);
+        Assert.NotEqual(viewModel.EmailStatusAccent, viewModel.WorkflowFocusAccent);
+    }
+
+    [Fact]
+    public async Task ShieldCounters_TrackEachProtectedLanePulseAndResetForTheNextRun()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null);
+        var firstDatabaseBlock = new EventItemViewModel(Event(
+            21,
+            PartnerDeskRuntimeEventKind.GateFindingRecorded,
+            "gatekeeper",
+            PartnerDatabaseTool.ToolName,
+            "Bulk read blocked",
+            PartnerDeskRuntimeDisposition.Blocked));
+        var secondDatabaseBlock = new EventItemViewModel(Event(
+            22,
+            PartnerDeskRuntimeEventKind.GateFindingRecorded,
+            "gatekeeper",
+            PartnerDatabaseTool.ToolName,
+            "Second bulk read blocked",
+            PartnerDeskRuntimeDisposition.Blocked));
+        var emailBlock = new EventItemViewModel(Event(
+            23,
+            PartnerDeskRuntimeEventKind.GateFindingRecorded,
+            "gatekeeper",
+            EmailTool.ToolName,
+            "External email blocked",
+            PartnerDeskRuntimeDisposition.Blocked));
+        var resultWithheld = new EventItemViewModel(Event(
+            24,
+            PartnerDeskRuntimeEventKind.ResultWithheld,
+            "gatekeeper",
+            "mcp",
+            "Untrusted result withheld",
+            PartnerDeskRuntimeDisposition.Blocked));
+
+        viewModel.StoryEvents.Add(firstDatabaseBlock);
+        viewModel.StoryEvents.Add(secondDatabaseBlock);
+        viewModel.StoryEvents.Add(emailBlock);
+        viewModel.StoryEvents.Add(resultWithheld);
+
+        Assert.Equal(2, viewModel.DatabaseShieldCount);
+        Assert.Equal(1, viewModel.EmailShieldCount);
+        Assert.Equal(1, viewModel.McpShieldCount);
+        Assert.Contains("2 enforced actions", viewModel.DatabaseShieldToolTip, StringComparison.Ordinal);
+
+        viewModel.SelectedEvent = firstDatabaseBlock;
+
+        Assert.Equal(36, viewModel.DatabaseShieldSize);
+        Assert.Equal(1, viewModel.DatabaseShieldOpacity);
+        Assert.Equal(32, viewModel.McpShieldSize);
+        Assert.Equal(0.72, viewModel.McpShieldOpacity);
+
+        viewModel.PrepareRunPresentation(
+            PartnerDeskRunConfiguration.ForPhase(DemoPhase.Clean),
+            clearEvents: true);
+
+        Assert.Equal(0, viewModel.DatabaseShieldCount);
+        Assert.Equal(0, viewModel.EmailShieldCount);
+        Assert.Equal(0, viewModel.McpShieldCount);
+        Assert.Equal(32, viewModel.DatabaseShieldSize);
+        Assert.Equal(0.56, viewModel.DatabaseShieldOpacity);
+    }
+
+    private static ControlRoomEvent Event(
+        long sequence,
+        PartnerDeskRuntimeEventKind kind,
+        string source,
+        string target,
+        string title,
+        PartnerDeskRuntimeDisposition disposition) =>
+        new(
+            Guid.NewGuid(),
+            sequence,
+            TimeSpan.FromMilliseconds(sequence * 10),
+            DateTimeOffset.UtcNow,
+            kind,
+            source,
+            target,
+            title,
+            title,
+            disposition,
+            null,
+            null,
+            null);
+
 }
