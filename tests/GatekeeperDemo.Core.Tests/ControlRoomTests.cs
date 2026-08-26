@@ -87,6 +87,30 @@ public sealed class ControlRoomTests
             item.Kind == PartnerDeskRuntimeEventKind.ToolExecutionStarted
             && item.Target == "send_email"
             && item.Disposition == PartnerDeskRuntimeDisposition.Risky);
+
+        var events = store.Snapshot();
+        var modelInputs = events
+            .Where(item => item.Kind == PartnerDeskRuntimeEventKind.ModelRequestStarted)
+            .ToArray();
+        Assert.NotEmpty(modelInputs);
+        Assert.All(modelInputs, item =>
+        {
+            Assert.Contains("[SYSTEM INSTRUCTIONS]", item.PayloadPreview, StringComparison.Ordinal);
+            Assert.Contains("[AVAILABLE TOOLS]", item.PayloadPreview, StringComparison.Ordinal);
+            Assert.Contains(Question, item.PayloadPreview, StringComparison.Ordinal);
+        });
+        Assert.Contains(events, item =>
+            item.Kind == PartnerDeskRuntimeEventKind.ModelResponseReceived
+            && item.PayloadPreview?.Contains(
+                "TOOL CALL: get_company_report",
+                StringComparison.Ordinal) == true);
+        Assert.Contains(events, item =>
+            item.Kind == PartnerDeskRuntimeEventKind.ToolCompleted
+            && item.Source == "mcp"
+            && !string.IsNullOrWhiteSpace(item.PayloadPreview));
+        Assert.All(
+            events.Where(item => item.PayloadPreview is not null),
+            item => Assert.True(item.PayloadPreview!.Length <= 6030));
     }
 
     [Fact]

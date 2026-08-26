@@ -75,7 +75,8 @@ public sealed class NarratedMcpTool : DelegatingAIFunction
             "agent",
             _untrusted ? "Untrusted PartnerIntel result arrived" : "PartnerIntel result arrived",
             $"Third-party response received ({text.Length} characters).",
-            _untrusted ? PartnerDeskRuntimeDisposition.Untrusted : PartnerDeskRuntimeDisposition.Safe));
+            _untrusted ? PartnerDeskRuntimeDisposition.Untrusted : PartnerDeskRuntimeDisposition.Safe,
+            PayloadPreview: Clip(text, 6000)));
 
         if (_announceOnly)
         {

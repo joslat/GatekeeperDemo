@@ -17,8 +17,8 @@
               BorderBrush="#263550"
               BorderThickness="1"
               Background="#101827">
-        <Grid ColumnDefinitions="32,*" RowDefinitions="Auto,Auto,Auto">
-          <Border Grid.RowSpan="3"
+        <Grid ColumnDefinitions="32,*" RowDefinitions="Auto,Auto,Auto,Auto">
+          <Border Grid.RowSpan="4"
                   Width="24" Height="24"
                   Margin="0,1,0,0"
                   CornerRadius="12"
@@ -31,9 +31,16 @@
           </Border>
           <Grid Grid.Column="1" ColumnDefinitions="*,Auto">
             <TextBlock Text="{Binding Title}" Classes="heading" FontSize="12" />
-            <Border Grid.Column="1" Background="#1C2940" CornerRadius="4" Padding="5,2">
-              <TextBlock Text="{Binding Badge}" Foreground="{Binding Accent}" FontSize="8" FontWeight="Bold" />
-            </Border>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+              <Button Content="{Binding ExpandControlText}"
+                      Command="{Binding ToggleExpandedCommand}"
+                      IsVisible="{Binding IsExpandControlVisible}"
+                      Classes="event-expander"
+                      ToolTip.Tip="Expand or collapse the bounded observable message or payload for this event." />
+              <Border Background="#1C2940" CornerRadius="4" Padding="5,2" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Badge}" Foreground="{Binding Accent}" FontSize="8" FontWeight="Bold" />
+              </Border>
+            </StackPanel>
           </Grid>
           <TextBlock Grid.Row="1" Grid.Column="1"
                      Text="{Binding Route}"
@@ -48,6 +55,33 @@
                        MaxHeight="44" />
             <TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="#64748D" FontSize="9" Margin="8,0,0,0" />
           </Grid>
+          <Border Grid.Row="3" Grid.Column="1"
+                  IsVisible="{Binding IsExpanded}"
+                  Background="#0A1220"
+                  BorderBrush="{Binding Accent}"
+                  BorderThickness="2,0,0,0"
+                  Padding="10,8"
+                  Margin="0,8,0,0"
+                  CornerRadius="0,5,5,0">
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding PayloadLabel}" Foreground="{Binding Accent}" FontSize="8" FontWeight="Bold"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        Content="{Binding ExpandControlText}"
+                        Command="{Binding ToggleExpandedCommand}"
+                        Classes="event-expander"
+                        ToolTip.Tip="Collapse this message or payload." />
+              </Grid>
+              <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <SelectableTextBlock Text="{Binding Payload}"
+                                     Foreground="#D0DBEA"
+                                     FontFamily="Cascadia Mono, Consolas"
+                                     FontSize="9"
+                                     TextWrapping="Wrap" />
+              </ScrollViewer>
+            </StackPanel>
+          </Border>
         </Grid>
       </Border>
     </DataTemplate>
@@ -115,7 +149,7 @@
         </StackPanel>
         <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="10" Margin="0,9,0,0" VerticalAlignment="Center">
           <TextBlock Text="STEP 2 · OPTIONAL CUSTOMIZATION" Foreground="#72B6FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,4,0" />
-          <Border Width="38" Height="38" CornerRadius="19" Background="{Binding EvilFaceBrush}" Opacity="{Binding EvilFaceOpacity}"
+          <Border Width="42" Height="42" CornerRadius="21" Background="{Binding EvilFaceBrush}" Opacity="{Binding EvilFaceOpacity}"
                   ToolTip.Tip="Evil MCP indicator. It fades in red when PartnerIntel serves the hostile addendum and fades out when clean.">
             <Border.Transitions>
               <Transitions>
@@ -123,7 +157,16 @@
                 <BrushTransition Property="Background" Duration="0:0:0.35" />
               </Transitions>
             </Border.Transitions>
-            <TextBlock Text="😈" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Viewbox Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Canvas Width="24" Height="24">
+                <!-- Purpose-built vector avoids the platform-dependent baseline and padding of the emoji glyph. -->
+                <Path Fill="#FFF4F6"
+                      Data="M1,1 L8,5 C9.2,4.35 10.55,4 12,4 C13.45,4 14.8,4.35 16,5 L23,1 L20.5,8 C22.1,10 23,12.2 23,14.6 C23,20 18.1,23 12,23 C5.9,23 1,20 1,14.6 C1,12.2 1.9,10 3.5,8 Z" />
+                <Path Fill="#95182B" Data="M6,10 L11,12.4 L7.1,13.8 Z M18,10 L13,12.4 L16.9,13.8 Z" />
+                <Path Stroke="#95182B" StrokeThickness="1.7" StrokeLineCap="Round"
+                      Data="M7.8,17 C9.7,19.3 14.3,19.3 16.2,17" />
+              </Canvas>
+            </Viewbox>
           </Border>
           <StackPanel MinWidth="98">
             <TextBlock Text="EVIL MCP" Classes="eyebrow" />
@@ -198,6 +241,8 @@
                 <StackPanel>
                   <TextBlock Text="LIVE INFORMATION FLOW" Classes="eyebrow" />
                   <TextBlock Text="Requests, responses, gates, and effects" Classes="heading" FontSize="16" Margin="0,4,0,0" />
+                  <TextBlock Text="{Binding WorkflowFocusText}" Foreground="{Binding WorkflowFocusAccent}"
+                             FontSize="10" FontWeight="Bold" Margin="0,5,0,0" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right">
                   <TextBlock Text="{Binding EvilModeLabel}" Foreground="{Binding McpAccent}" FontSize="10" FontWeight="Bold" />
@@ -209,7 +254,7 @@
               <!-- Human / agent / model request-response lane -->
               <Border Background="#0B1220" BorderBrush="#22314A" BorderThickness="1" CornerRadius="8" Padding="14">
                 <Grid ColumnDefinitions="190,128,220,128,190" VerticalAlignment="Center">
-                  <Border Classes="node" BorderBrush="{Binding UserAgentRoute}"
+                  <Border Classes="node" BorderBrush="{Binding HumanNodeAccent}" Background="{Binding HumanNodeSurface}" BorderThickness="2"
                           ToolTip.Tip="The compliance officer. Numbered demos keep this user's request identical so the protection change is the independent variable.">
                     <StackPanel>
                       <TextBlock Text="HUMAN" Classes="eyebrow" />
@@ -218,10 +263,10 @@
                     </StackPanel>
                   </Border>
                   <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="REQUEST  ━━━━━▶" Classes="flow" Foreground="{Binding UserAgentRoute}" />
-                    <TextBlock Text="◀━━━━━  ANSWER" Classes="flow" Foreground="{Binding UserAgentRoute}" />
+                    <TextBlock Text="REQUEST  ━━━━━▶" Classes="flow" Foreground="{Binding UserRequestRoute}" />
+                    <TextBlock Text="◀━━━━━  ANSWER" Classes="flow" Foreground="{Binding UserAnswerRoute}" />
                   </StackPanel>
-                  <Border Grid.Column="2" Classes="node" BorderBrush="{Binding UserAgentRoute}" BorderThickness="2"
+                  <Border Grid.Column="2" Classes="node" BorderBrush="{Binding AgentNodeAccent}" Background="{Binding AgentNodeSurface}" BorderThickness="2"
                           ToolTip.Tip="PartnerDesk orchestrates model turns and tool calls. Proposed calls are captured before Gatekeeper can block them.">
                     <StackPanel>
                       <TextBlock Text="ORCHESTRATOR" Classes="eyebrow" />
@@ -230,10 +275,10 @@
                     </StackPanel>
                   </Border>
                   <StackPanel Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="CONTEXT  ━━━━━▶" Classes="flow" Foreground="{Binding AgentModelRoute}" />
-                    <TextBlock Text="◀━━━━━  ACTION" Classes="flow" Foreground="{Binding AgentModelRoute}" />
+                    <TextBlock Text="CONTEXT  ━━━━━▶" Classes="flow" Foreground="{Binding ModelRequestRoute}" />
+                    <TextBlock Text="◀━━━━━  ACTION" Classes="flow" Foreground="{Binding ModelActionRoute}" />
                   </StackPanel>
-                  <Border Grid.Column="4" Classes="node" BorderBrush="{Binding AgentModelRoute}"
+                  <Border Grid.Column="4" Classes="node" BorderBrush="{Binding ModelNodeAccent}" Background="{Binding ModelNodeSurface}" BorderThickness="2"
                           ToolTip.Tip="The selected model provider. Scripted mode is repeatable; Azure OpenAI mode is live and nondeterministic. Hidden reasoning is never displayed.">
                     <StackPanel>
                       <TextBlock Text="MODEL" Classes="eyebrow" />
@@ -246,11 +291,11 @@
 
               <!-- Gates are physically inline with their protected destinations -->
               <Border Background="#0B1220" BorderBrush="#22314A" BorderThickness="1" CornerRadius="8" Padding="14">
-                <Grid ColumnDefinitions="180,128,170,128,*"
+                <Grid ColumnDefinitions="180,116,36,170,128,*"
                       RowDefinitions="Auto,86,86,86">
-                  <TextBlock Grid.ColumnSpan="5" Text="TOOL ROUTES · POLICY ENFORCEMENT IS INLINE BEFORE EACH DESTINATION"
+                  <TextBlock Grid.ColumnSpan="6" Text="TOOL ROUTES · POLICY ENFORCEMENT IS INLINE BEFORE EACH DESTINATION"
                              Classes="eyebrow" Margin="0,0,0,10" />
-                  <Border Grid.Row="1" Grid.RowSpan="3" Classes="node" BorderBrush="#4E6A94" VerticalAlignment="Stretch"
+                  <Border Grid.Row="1" Grid.RowSpan="3" Classes="node" BorderBrush="{Binding DispatcherNodeAccent}" Background="{Binding DispatcherNodeSurface}" BorderThickness="2" VerticalAlignment="Stretch"
                           ToolTip.Tip="The agent's tool dispatcher. Every model-proposed call is journaled here before the inline policy gate decides whether it may execute.">
                     <StackPanel VerticalAlignment="Center">
                       <TextBlock Text="PARTNERDESK" Classes="eyebrow" />
@@ -260,21 +305,42 @@
                   </Border>
 
                   <StackPanel Grid.Row="1" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding McpRoute}" />
-                    <TextBlock Text="◀━━━━━  RESULT" Classes="flow" Foreground="{Binding McpRoute}" />
+                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding McpCallRoute}" />
+                    <TextBlock Text="◀━━━━━  RESULT" Classes="flow" Foreground="{Binding McpResultRoute}" />
                   </StackPanel>
-                  <Border Grid.Row="1" Grid.Column="2" Background="#172238" BorderBrush="{Binding McpRoute}" BorderThickness="1" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                  <Grid Grid.Row="1" Grid.Column="2"
+                        Width="{Binding McpShieldSize}" Height="{Binding McpShieldSize}"
+                        Opacity="{Binding McpShieldOpacity}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        ToolTip.Tip="{Binding McpShieldToolTip}"
+                        AutomationProperties.Name="{Binding McpShieldToolTip}">
+                    <Grid.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.24" />
+                        <DoubleTransition Property="Width" Duration="0:0:0.18" />
+                        <DoubleTransition Property="Height" Duration="0:0:0.18" />
+                      </Transitions>
+                    </Grid.Transitions>
+                    <PathIcon Width="30" Height="30" Data="M12,1 L21,5 V11 C21,16.6 17.2,21.4 12,23 C6.8,21.4 3,16.6 3,11 V5 Z"
+                              Foreground="{Binding McpShieldAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Width="16" Height="16" CornerRadius="8" Background="#0B1220" BorderBrush="{Binding McpShieldAccent}" BorderThickness="1"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                      <TextBlock Text="{Binding McpShieldCount}" Foreground="{Binding McpShieldAccent}" FontSize="8" FontWeight="Bold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                  </Grid>
+                  <Border Grid.Row="1" Grid.Column="3" Background="#172238" BorderBrush="{Binding McpGateAccent}" BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
                           ToolTip.Tip="Result admission inspects the MCP response before model context. Containment refuses later calls after an operator records the hostile source.">
                     <StackPanel>
-                      <TextBlock Text="{Binding ResultGateLabel}" Foreground="{Binding McpRoute}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
-                      <TextBlock Text="{Binding ContainmentLabel}" Foreground="#91A4C1" FontSize="8" HorizontalAlignment="Center" Margin="0,3,0,0" />
+                      <TextBlock Text="{Binding ResultGateLabel}" Foreground="{Binding McpGateAccent}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
+                      <TextBlock Text="{Binding ContainmentLabel}" Foreground="{Binding McpGateAccent}" FontSize="8" HorizontalAlignment="Center" Margin="0,3,0,0" />
                     </StackPanel>
                   </Border>
-                  <StackPanel Grid.Row="1" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="ADMIT  ━━━━━▶" Classes="flow" Foreground="{Binding McpRoute}" />
-                    <TextBlock Text="◀━━━━━  INSPECT" Classes="flow" Foreground="{Binding McpRoute}" />
+                  <StackPanel Grid.Row="1" Grid.Column="4" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="ADMIT  ━━━━━▶" Classes="flow" Foreground="{Binding McpAdmitRoute}" />
+                    <TextBlock Text="◀━━━━━  INSPECT" Classes="flow" Foreground="{Binding McpInspectRoute}" />
                   </StackPanel>
-                  <Border Grid.Row="1" Grid.Column="4" Classes="node" BorderBrush="{Binding McpAccent}"
+                  <Border Grid.Row="1" Grid.Column="5" Classes="node" BorderBrush="{Binding McpNodeAccent}" Background="{Binding McpNodeSurface}" BorderThickness="2" Margin="0,4"
                           ToolTip.Tip="A genuine MCP server in a child process over stdio. Evil mode changes the supplier response; no network service is contacted.">
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel>
@@ -287,44 +353,86 @@
                   </Border>
 
                   <StackPanel Grid.Row="2" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding DatabaseRoute}" />
-                    <TextBlock Text="◀━━━━━  ROWS" Classes="flow" Foreground="{Binding DatabaseRoute}" />
+                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding DatabaseCallRoute}" />
+                    <TextBlock Text="◀━━━━━  ROWS" Classes="flow" Foreground="{Binding DatabaseRowsRoute}" />
                   </StackPanel>
-                  <Border Grid.Row="2" Grid.Column="2" Background="#172238" BorderBrush="{Binding DatabaseRoute}" BorderThickness="1" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                  <Grid Grid.Row="2" Grid.Column="2"
+                        Width="{Binding DatabaseShieldSize}" Height="{Binding DatabaseShieldSize}"
+                        Opacity="{Binding DatabaseShieldOpacity}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        ToolTip.Tip="{Binding DatabaseShieldToolTip}"
+                        AutomationProperties.Name="{Binding DatabaseShieldToolTip}">
+                    <Grid.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.24" />
+                        <DoubleTransition Property="Width" Duration="0:0:0.18" />
+                        <DoubleTransition Property="Height" Duration="0:0:0.18" />
+                      </Transitions>
+                    </Grid.Transitions>
+                    <PathIcon Width="30" Height="30" Data="M12,1 L21,5 V11 C21,16.6 17.2,21.4 12,23 C6.8,21.4 3,16.6 3,11 V5 Z"
+                              Foreground="{Binding DatabaseShieldAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Width="16" Height="16" CornerRadius="8" Background="#0B1220" BorderBrush="{Binding DatabaseShieldAccent}" BorderThickness="1"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                      <TextBlock Text="{Binding DatabaseShieldCount}" Foreground="{Binding DatabaseShieldAccent}" FontSize="8" FontWeight="Bold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                  </Grid>
+                  <Border Grid.Row="2" Grid.Column="3" Background="#172238" BorderBrush="{Binding DatabaseGateAccent}" BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
                           ToolTip.Tip="Database scope gate: permits one named partner lookup and blocks bulk register reads before execution.">
-                    <TextBlock Text="{Binding DatabaseGateLabel}" Foreground="{Binding DatabaseRoute}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding DatabaseGateLabel}" Foreground="{Binding DatabaseGateAccent}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
                   </Border>
-                  <StackPanel Grid.Row="2" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="ALLOW  ━━━━━▶" Classes="flow" Foreground="{Binding DatabaseRoute}" />
-                    <TextBlock Text="◀━━━━━  EFFECT" Classes="flow" Foreground="{Binding DatabaseRoute}" />
+                  <StackPanel Grid.Row="2" Grid.Column="4" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="ALLOW  ━━━━━▶" Classes="flow" Foreground="{Binding DatabaseAllowRoute}" />
+                    <TextBlock Text="◀━━━━━  EFFECT" Classes="flow" Foreground="{Binding DatabaseEffectRoute}" />
                   </StackPanel>
-                  <Border Grid.Row="2" Grid.Column="4" Classes="node" BorderBrush="{Binding DatabaseNodeAccent}"
+                  <Border Grid.Row="2" Grid.Column="5" Classes="node" BorderBrush="{Binding DatabaseNodeAccent}" Background="{Binding DatabaseNodeSurface}" BorderThickness="2" Margin="0,4"
                           ToolTip.Tip="A local synthetic partner register. Red means a bulk-read effect actually executed; green means no unsafe read executed.">
                     <StackPanel>
                       <TextBlock Text="LOCAL FAKE TOOL" Classes="eyebrow" />
                       <TextBlock Text="Partner database" Classes="heading" Margin="0,4,0,0" />
-                      <TextBlock Text="{Binding DatabaseStatus}" Foreground="{Binding DatabaseNodeAccent}" FontSize="10" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding DatabaseStatus}" Foreground="{Binding DatabaseStatusAccent}" FontSize="10" TextWrapping="Wrap" />
                     </StackPanel>
                   </Border>
 
                   <StackPanel Grid.Row="3" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding EmailRoute}" />
-                    <TextBlock Text="◀━━━━━  RECEIPT" Classes="flow" Foreground="{Binding EmailRoute}" />
+                    <TextBlock Text="CALL  ━━━━━▶" Classes="flow" Foreground="{Binding EmailCallRoute}" />
+                    <TextBlock Text="◀━━━━━  RECEIPT" Classes="flow" Foreground="{Binding EmailReceiptRoute}" />
                   </StackPanel>
-                  <Border Grid.Row="3" Grid.Column="2" Background="#172238" BorderBrush="{Binding EmailRoute}" BorderThickness="1" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
+                  <Grid Grid.Row="3" Grid.Column="2"
+                        Width="{Binding EmailShieldSize}" Height="{Binding EmailShieldSize}"
+                        Opacity="{Binding EmailShieldOpacity}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        ToolTip.Tip="{Binding EmailShieldToolTip}"
+                        AutomationProperties.Name="{Binding EmailShieldToolTip}">
+                    <Grid.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.24" />
+                        <DoubleTransition Property="Width" Duration="0:0:0.18" />
+                        <DoubleTransition Property="Height" Duration="0:0:0.18" />
+                      </Transitions>
+                    </Grid.Transitions>
+                    <PathIcon Width="30" Height="30" Data="M12,1 L21,5 V11 C21,16.6 17.2,21.4 12,23 C6.8,21.4 3,16.6 3,11 V5 Z"
+                              Foreground="{Binding EmailShieldAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Width="16" Height="16" CornerRadius="8" Background="#0B1220" BorderBrush="{Binding EmailShieldAccent}" BorderThickness="1"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                      <TextBlock Text="{Binding EmailShieldCount}" Foreground="{Binding EmailShieldAccent}" FontSize="8" FontWeight="Bold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                  </Grid>
+                  <Border Grid.Row="3" Grid.Column="3" Background="#172238" BorderBrush="{Binding EmailGateAccent}" BorderThickness="2" CornerRadius="16" Padding="9,7" VerticalAlignment="Center"
                           ToolTip.Tip="Recipient gate: permits the firm's internal email domain and blocks external recipients before execution.">
-                    <TextBlock Text="{Binding EmailGateLabel}" Foreground="{Binding EmailRoute}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding EmailGateLabel}" Foreground="{Binding EmailGateAccent}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" />
                   </Border>
-                  <StackPanel Grid.Row="3" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                    <TextBlock Text="ALLOW  ━━━━━▶" Classes="flow" Foreground="{Binding EmailRoute}" />
-                    <TextBlock Text="◀━━━━━  EFFECT" Classes="flow" Foreground="{Binding EmailRoute}" />
+                  <StackPanel Grid.Row="3" Grid.Column="4" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="ALLOW  ━━━━━▶" Classes="flow" Foreground="{Binding EmailAllowRoute}" />
+                    <TextBlock Text="◀━━━━━  EFFECT" Classes="flow" Foreground="{Binding EmailEffectRoute}" />
                   </StackPanel>
-                  <Border Grid.Row="3" Grid.Column="4" Classes="node" BorderBrush="{Binding EmailNodeAccent}"
+                  <Border Grid.Row="3" Grid.Column="5" Classes="node" BorderBrush="{Binding EmailNodeAccent}" Background="{Binding EmailNodeSurface}" BorderThickness="2" Margin="0,4"
                           ToolTip.Tip="A local fake outbox. It never sends SMTP mail. Red means an external-recipient effect executed; green means none executed.">
                     <StackPanel>
                       <TextBlock Text="LOCAL FAKE TOOL" Classes="eyebrow" />
                       <TextBlock Text="Email outbox" Classes="heading" Margin="0,4,0,0" />
-                      <TextBlock Text="{Binding EmailStatus}" Foreground="{Binding EmailNodeAccent}" FontSize="10" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding EmailStatus}" Foreground="{Binding EmailStatusAccent}" FontSize="10" TextWrapping="Wrap" />
                     </StackPanel>
                   </Border>
                 </Grid>

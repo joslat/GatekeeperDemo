@@ -187,7 +187,7 @@ public sealed class PartnerDeskRunner : IAsyncDisposable
             "User asked PartnerDesk",
             question,
             PartnerDeskRuntimeDisposition.Neutral,
-            PayloadPreview: Clip(question)));
+            PayloadPreview: Clip(question, 6000)));
 
         var session = await EnsurePartnerIntelAsync(evilMode, cancellationToken).ConfigureAwait(false);
 
@@ -347,7 +347,7 @@ public sealed class PartnerDeskRunner : IAsyncDisposable
             // A plausible answer is not a safety verdict. In the compromised scene it can conceal effects that
             // already happened; only the outcome evidence emitted at RunCompleted can label the run safe/unsafe.
             PartnerDeskRuntimeDisposition.Neutral,
-            PayloadPreview: Clip(response.Text ?? string.Empty)));
+            PayloadPreview: Clip(response.Text ?? string.Empty, 6000)));
 
         return new PhaseOutcome
         {

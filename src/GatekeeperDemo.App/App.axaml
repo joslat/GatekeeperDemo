@@ -51,6 +51,16 @@
       <Setter Property="Background" Value="#3B1720" />
       <Setter Property="Foreground" Value="#FF8793" />
     </Style>
+    <Style Selector="Button.event-expander">
+      <Setter Property="Background" Value="#17243A" />
+      <Setter Property="BorderBrush" Value="#30496F" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#9FC5FF" />
+      <Setter Property="FontSize" Value="8" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Padding" Value="7,3" />
+      <Setter Property="MinHeight" Value="22" />
+    </Style>
     <Style Selector="Border.card">
       <Setter Property="Background" Value="#111827" />
       <Setter Property="BorderBrush" Value="#25324A" />

@@ -87,8 +87,16 @@ The setup strip is a three-step path:
    the blue preset selection and labels the setup **Custom configuration**.
 3. **Review the user request and run.** Press **Run selected demo**. The button also runs a valid custom setup.
 
-Keep the **Story** tab open on the first run. Watch the arrows in **Live information flow** and the vertical event
-stream together. Hover over a button, gate, or component for a short explanation.
+Keep the **Story** tab open on the first run. The `EVENT nnn` caption above **Live information flow** always matches
+the selected AI Events card. At each step, the active component surface and only the relevant directional segments
+light together: request/action, tool call, active inline gate, allow/admit, tool, and the returning effect/rows/result.
+With **Follow latest** enabled this advances automatically; selecting an older event freezes both the card and its
+workflow route for inspection. Hover over a button, gate, or component for a short explanation.
+
+Starting **Run selected demo** again creates a new run ID and clears the prior Story, Security, Debug, selection,
+replay cursor, tool summaries, route highlights, and A/B result band before the first new event is shown. The prior
+MCP child process is disposed after its run, and database/email effects use a new run-local directory. This prevents
+old evidence from being visually attributed to the new run.
 
 ## Recommended demo sequence
 
@@ -127,6 +135,24 @@ without protection and with full protection, then displays the actual-effect dif
 - **Debug** contains the full ordered narration and exceptions.
 - **.Evals** contains batch progress and the imported evaluation report.
 - **Previous**, **Next**, and **Start** replay recorded events visually after a run. Replay does not execute tools.
+- **Audience pacing** holds ordinary, risky, and blocked steps long enough to follow on a projector. Turn it off for
+  un-delayed real-time projection.
+- **Follow latest** keeps the workflow focus synchronized to the newest event. Turn it off—or select an earlier
+  card—to freeze that event's components and route.
+- Each protected tool lane has a shield immediately before its gate. The shield grows and brightens when that gate
+  blocks or withholds an action; its badge counts enforced actions for the current run (`0`, `1`, `2`, …). Starting
+  another run resets all three counters to zero. Hover a shield to see which gate it represents and its current
+  run-local total.
+- Event cards that retain observable content show a **▶ SENT MESSAGE**, **▶ RECEIVED MESSAGE**, **▶ MODEL INPUT**,
+  **▶ MODEL OUTPUT**, **▶ TOOL CALL**, or **▶ TOOL RESPONSE** control. Select it to open a scrollable, selectable
+  text body inside that card; select **▼** to collapse it. Each card expands independently, including during a live
+  run, so you can watch the request/response sequence without leaving the Story or Security timeline.
+
+Model input bodies show the visible system instructions, available tool names, and conversation/tool-result
+content supplied to the provider. Model output bodies show visible assistant text and requested function calls.
+These are bounded observable previews (6,000 characters per event), not raw transport captures: credentials,
+hidden chain-of-thought, and provider-private content are never recorded. A truncation marker is shown when a body
+exceeds the bound.
 
 ## What is real?
 
@@ -166,6 +192,6 @@ Both live paths are probabilistic. Do not commit credentials. See the
 - **Restore cannot reach NuGet:** check network/proxy access, then rerun `start.cmd`.
 - **The Run button is disabled:** enter a non-empty user request and wait for any active run to finish.
 - **Individual gates are disabled:** turn on **Gatekeeper master** first.
-- **A prior result disappeared:** selecting another preset or changing configuration intentionally clears stale
-  evidence so it cannot be mistaken for the new setup.
+- **A prior result disappeared:** starting another run, selecting another preset, or changing configuration
+  intentionally clears stale evidence so it cannot be mistaken for the new setup.
 - **The window closed with an error:** launch from `start.cmd` or PowerShell so the console displays the exception.

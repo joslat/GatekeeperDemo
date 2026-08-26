@@ -1,5 +1,7 @@
 using AgentEval.PartnerDeskDemo.Demo;
 using AgentEval.PartnerDeskDemo.Gates;
+using AgentEval.PartnerDeskDemo.Mcp;
+using AgentEval.PartnerDeskDemo.Tools;
 using Avalonia.Media;
 using Avalonia.Threading;
 using GatekeeperDemo.Core;
@@ -20,6 +22,11 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private static readonly IBrush SceneBorder = Brush.Parse("#34435B");
     private static readonly IBrush SelectedSceneBackground = Brush.Parse("#224E8D");
     private static readonly IBrush SelectedSceneBorder = Brush.Parse("#5AA6FF");
+    private static readonly IBrush IdleNodeSurface = Brush.Parse("#131D30");
+    private static readonly IBrush NeutralNodeSurface = Brush.Parse("#173154");
+    private static readonly IBrush SafeNodeSurface = Brush.Parse("#12382B");
+    private static readonly IBrush RiskNodeSurface = Brush.Parse("#3D1B25");
+    private static readonly IBrush BlockedNodeSurface = Brush.Parse("#3B2C19");
 
     private static readonly string[] KnownAzureDeployments =
     [
@@ -41,7 +48,6 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private CancellationTokenSource? _runCancellation;
     private DemoPhase? _canonicalPhase = DemoPhase.Clean;
     private bool _applyingPreset;
-    private int _highlightVersion;
     private RunReplay? _replay;
     private Channel<ControlRoomEvent>? _projectionChannel;
     private Task _projectionTask = Task.CompletedTask;
@@ -71,14 +77,50 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private int _evaluationRuns = 1;
     private string _evaluationStatus = "Not run — choose 1–25 deterministic samples per arm.";
     private string _evaluationReport = "The imported AgentEval.PartnerDeskDemo.Evals report will appear here.";
+    private string _workflowFocusText = "IDLE · Run a demo to follow each component and route.";
+    private IBrush _workflowFocusAccent = MutedAccent;
     private EventItemViewModel? _selectedEvent;
-    private IBrush _userAgentRoute = IdleRoute;
-    private IBrush _agentModelRoute = IdleRoute;
-    private IBrush _mcpRoute = IdleRoute;
-    private IBrush _databaseRoute = IdleRoute;
-    private IBrush _emailRoute = IdleRoute;
+    private IBrush _humanNodeAccent = IdleRoute;
+    private IBrush _humanNodeSurface = IdleNodeSurface;
+    private IBrush _agentNodeAccent = IdleRoute;
+    private IBrush _agentNodeSurface = IdleNodeSurface;
+    private IBrush _modelNodeAccent = IdleRoute;
+    private IBrush _modelNodeSurface = IdleNodeSurface;
+    private IBrush _dispatcherNodeAccent = IdleRoute;
+    private IBrush _dispatcherNodeSurface = IdleNodeSurface;
+    private IBrush _mcpNodeAccent = IdleRoute;
+    private IBrush _mcpNodeSurface = IdleNodeSurface;
     private IBrush _databaseNodeAccent = IdleRoute;
+    private IBrush _databaseNodeSurface = IdleNodeSurface;
     private IBrush _emailNodeAccent = IdleRoute;
+    private IBrush _emailNodeSurface = IdleNodeSurface;
+    private IBrush _databaseStatusAccent = IdleRoute;
+    private IBrush _emailStatusAccent = IdleRoute;
+    private IBrush _userRequestRoute = IdleRoute;
+    private IBrush _userAnswerRoute = IdleRoute;
+    private IBrush _modelRequestRoute = IdleRoute;
+    private IBrush _modelActionRoute = IdleRoute;
+    private IBrush _mcpCallRoute = IdleRoute;
+    private IBrush _mcpResultRoute = IdleRoute;
+    private IBrush _mcpGateAccent = IdleRoute;
+    private IBrush _mcpAdmitRoute = IdleRoute;
+    private IBrush _mcpInspectRoute = IdleRoute;
+    private IBrush _databaseCallRoute = IdleRoute;
+    private IBrush _databaseRowsRoute = IdleRoute;
+    private IBrush _databaseGateAccent = IdleRoute;
+    private IBrush _databaseAllowRoute = IdleRoute;
+    private IBrush _databaseEffectRoute = IdleRoute;
+    private IBrush _emailCallRoute = IdleRoute;
+    private IBrush _emailReceiptRoute = IdleRoute;
+    private IBrush _emailGateAccent = IdleRoute;
+    private IBrush _emailAllowRoute = IdleRoute;
+    private IBrush _emailEffectRoute = IdleRoute;
+    private double _mcpShieldOpacity = 0.56;
+    private double _databaseShieldOpacity = 0.56;
+    private double _emailShieldOpacity = 0.56;
+    private double _mcpShieldSize = 32;
+    private double _databaseShieldSize = 32;
+    private double _emailShieldSize = 32;
 
     public MainWindowViewModel()
         : this(
@@ -404,6 +446,8 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     }
     public string EvaluationStatus { get => _evaluationStatus; private set => SetProperty(ref _evaluationStatus, value); }
     public string EvaluationReport { get => _evaluationReport; private set => SetProperty(ref _evaluationReport, value); }
+    public string WorkflowFocusText { get => _workflowFocusText; private set => SetProperty(ref _workflowFocusText, value); }
+    public IBrush WorkflowFocusAccent { get => _workflowFocusAccent; private set => SetProperty(ref _workflowFocusAccent, value); }
 
     public EventItemViewModel? SelectedEvent
     {
@@ -412,21 +456,65 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         {
             if (SetProperty(ref _selectedEvent, value) && value is not null)
             {
-                ApplyEventToTopology(value.Event, transient: false);
+                ApplyEventToTopology(value.Event);
             }
         }
     }
 
-    public IBrush UserAgentRoute { get => _userAgentRoute; private set => SetProperty(ref _userAgentRoute, value); }
-    public IBrush AgentModelRoute { get => _agentModelRoute; private set => SetProperty(ref _agentModelRoute, value); }
-    public IBrush McpRoute { get => _mcpRoute; private set => SetProperty(ref _mcpRoute, value); }
-    public IBrush DatabaseRoute { get => _databaseRoute; private set => SetProperty(ref _databaseRoute, value); }
-    public IBrush EmailRoute { get => _emailRoute; private set => SetProperty(ref _emailRoute, value); }
+    public IBrush HumanNodeAccent { get => _humanNodeAccent; private set => SetProperty(ref _humanNodeAccent, value); }
+    public IBrush HumanNodeSurface { get => _humanNodeSurface; private set => SetProperty(ref _humanNodeSurface, value); }
+    public IBrush AgentNodeAccent { get => _agentNodeAccent; private set => SetProperty(ref _agentNodeAccent, value); }
+    public IBrush AgentNodeSurface { get => _agentNodeSurface; private set => SetProperty(ref _agentNodeSurface, value); }
+    public IBrush ModelNodeAccent { get => _modelNodeAccent; private set => SetProperty(ref _modelNodeAccent, value); }
+    public IBrush ModelNodeSurface { get => _modelNodeSurface; private set => SetProperty(ref _modelNodeSurface, value); }
+    public IBrush DispatcherNodeAccent { get => _dispatcherNodeAccent; private set => SetProperty(ref _dispatcherNodeAccent, value); }
+    public IBrush DispatcherNodeSurface { get => _dispatcherNodeSurface; private set => SetProperty(ref _dispatcherNodeSurface, value); }
+    public IBrush McpNodeAccent { get => _mcpNodeAccent; private set => SetProperty(ref _mcpNodeAccent, value); }
+    public IBrush McpNodeSurface { get => _mcpNodeSurface; private set => SetProperty(ref _mcpNodeSurface, value); }
     public IBrush DatabaseNodeAccent { get => _databaseNodeAccent; private set => SetProperty(ref _databaseNodeAccent, value); }
+    public IBrush DatabaseNodeSurface { get => _databaseNodeSurface; private set => SetProperty(ref _databaseNodeSurface, value); }
     public IBrush EmailNodeAccent { get => _emailNodeAccent; private set => SetProperty(ref _emailNodeAccent, value); }
+    public IBrush EmailNodeSurface { get => _emailNodeSurface; private set => SetProperty(ref _emailNodeSurface, value); }
+    public IBrush DatabaseStatusAccent { get => _databaseStatusAccent; private set => SetProperty(ref _databaseStatusAccent, value); }
+    public IBrush EmailStatusAccent { get => _emailStatusAccent; private set => SetProperty(ref _emailStatusAccent, value); }
+    public IBrush UserRequestRoute { get => _userRequestRoute; private set => SetProperty(ref _userRequestRoute, value); }
+    public IBrush UserAnswerRoute { get => _userAnswerRoute; private set => SetProperty(ref _userAnswerRoute, value); }
+    public IBrush ModelRequestRoute { get => _modelRequestRoute; private set => SetProperty(ref _modelRequestRoute, value); }
+    public IBrush ModelActionRoute { get => _modelActionRoute; private set => SetProperty(ref _modelActionRoute, value); }
+    public IBrush McpCallRoute { get => _mcpCallRoute; private set => SetProperty(ref _mcpCallRoute, value); }
+    public IBrush McpResultRoute { get => _mcpResultRoute; private set => SetProperty(ref _mcpResultRoute, value); }
+    public IBrush McpGateAccent { get => _mcpGateAccent; private set => SetProperty(ref _mcpGateAccent, value); }
+    public IBrush McpAdmitRoute { get => _mcpAdmitRoute; private set => SetProperty(ref _mcpAdmitRoute, value); }
+    public IBrush McpInspectRoute { get => _mcpInspectRoute; private set => SetProperty(ref _mcpInspectRoute, value); }
+    public IBrush DatabaseCallRoute { get => _databaseCallRoute; private set => SetProperty(ref _databaseCallRoute, value); }
+    public IBrush DatabaseRowsRoute { get => _databaseRowsRoute; private set => SetProperty(ref _databaseRowsRoute, value); }
+    public IBrush DatabaseGateAccent { get => _databaseGateAccent; private set => SetProperty(ref _databaseGateAccent, value); }
+    public IBrush DatabaseAllowRoute { get => _databaseAllowRoute; private set => SetProperty(ref _databaseAllowRoute, value); }
+    public IBrush DatabaseEffectRoute { get => _databaseEffectRoute; private set => SetProperty(ref _databaseEffectRoute, value); }
+    public IBrush EmailCallRoute { get => _emailCallRoute; private set => SetProperty(ref _emailCallRoute, value); }
+    public IBrush EmailReceiptRoute { get => _emailReceiptRoute; private set => SetProperty(ref _emailReceiptRoute, value); }
+    public IBrush EmailGateAccent { get => _emailGateAccent; private set => SetProperty(ref _emailGateAccent, value); }
+    public IBrush EmailAllowRoute { get => _emailAllowRoute; private set => SetProperty(ref _emailAllowRoute, value); }
+    public IBrush EmailEffectRoute { get => _emailEffectRoute; private set => SetProperty(ref _emailEffectRoute, value); }
+    public int McpShieldCount => ShieldCount(ToolLane.Mcp);
+    public int DatabaseShieldCount => ShieldCount(ToolLane.Database);
+    public int EmailShieldCount => ShieldCount(ToolLane.Email);
+    public IBrush McpShieldAccent => McpShieldCount > 0 ? BlockedRoute : MutedAccent;
+    public IBrush DatabaseShieldAccent => DatabaseShieldCount > 0 ? BlockedRoute : MutedAccent;
+    public IBrush EmailShieldAccent => EmailShieldCount > 0 ? BlockedRoute : MutedAccent;
+    public string McpShieldToolTip => ShieldToolTip("MCP admission", McpShieldCount);
+    public string DatabaseShieldToolTip => ShieldToolTip("database scope", DatabaseShieldCount);
+    public string EmailShieldToolTip => ShieldToolTip("email recipient", EmailShieldCount);
+    public double McpShieldOpacity { get => _mcpShieldOpacity; private set => SetProperty(ref _mcpShieldOpacity, value); }
+    public double DatabaseShieldOpacity { get => _databaseShieldOpacity; private set => SetProperty(ref _databaseShieldOpacity, value); }
+    public double EmailShieldOpacity { get => _emailShieldOpacity; private set => SetProperty(ref _emailShieldOpacity, value); }
+    public double McpShieldSize { get => _mcpShieldSize; private set => SetProperty(ref _mcpShieldSize, value); }
+    public double DatabaseShieldSize { get => _databaseShieldSize; private set => SetProperty(ref _databaseShieldSize, value); }
+    public double EmailShieldSize { get => _emailShieldSize; private set => SetProperty(ref _emailShieldSize, value); }
 
     private async Task RunCurrentAsync()
     {
+        ResetComparisonState();
         var configuration = CurrentConfiguration();
         await ExecuteRunAsync(configuration, clearEvents: true);
     }
@@ -456,16 +544,11 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             return null;
         }
 
-        if (clearEvents) ClearEvents();
+        PrepareRunPresentation(configuration, clearEvents);
         StartEventProjection();
         IsRunning = true;
         RunBadge = modelConfiguration.IsDeterministic ? "SCRIPTED RUN" : "AZURE RUN";
         StatusMessage = $"Running {configuration.Name} with {modelConfiguration.DisplayName}…";
-        AgentStatus = "Working";
-        DatabaseStatus = "No effects yet";
-        EmailStatus = "No effects yet";
-        DatabaseNodeAccent = NeutralRoute;
-        EmailNodeAccent = NeutralRoute;
         _runCancellation = new();
         var store = new ControlRoomEventStore();
         store.EventRecorded += OnEventRecorded;
@@ -526,6 +609,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
 
     private async Task RunComparisonAsync()
     {
+        ResetComparisonState();
         IsComparisonVisible = true;
         ApplyPreset(DemoPhase.Compromised);
         var without = await ExecuteRunAsync(
@@ -672,10 +756,10 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         return runtimeEvent.Disposition switch
         {
             PartnerDeskRuntimeDisposition.Risky or PartnerDeskRuntimeDisposition.Untrusted =>
-                TimeSpan.FromMilliseconds(320),
+                TimeSpan.FromMilliseconds(650),
             PartnerDeskRuntimeDisposition.Blocked or PartnerDeskRuntimeDisposition.Withheld =>
-                TimeSpan.FromMilliseconds(440),
-            _ => TimeSpan.FromMilliseconds(140),
+                TimeSpan.FromMilliseconds(850),
+            _ => TimeSpan.FromMilliseconds(420),
         };
     }
 
@@ -688,6 +772,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         {
             StoryEvents.Add(item);
             RaisePropertyChanged(nameof(IsStoryEmpty));
+            RaiseShieldCounter(runtimeEvent);
             if (AutoFollowEvents)
             {
                 SelectedEvent = item;
@@ -704,16 +789,20 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             RaisePropertyChanged(nameof(IsSecurityEmpty));
         }
 
-        if (runtimeEvent.Kind != PartnerDeskRuntimeEventKind.Diagnostic)
+        if (runtimeEvent.Kind != PartnerDeskRuntimeEventKind.Diagnostic && !AutoFollowEvents)
         {
-            ApplyEventToTopology(runtimeEvent, transient: true);
+            // A manually selected event freezes both its card and its workflow focus. When there is no selected
+            // event yet, still show the live component until the presenter chooses an event.
+            if (SelectedEvent is null)
+            {
+                ApplyEventToTopology(runtimeEvent);
+            }
         }
     }
 
-    private async void ApplyEventToTopology(ControlRoomEvent runtimeEvent, bool transient)
+    private void ApplyEventToTopology(ControlRoomEvent runtimeEvent)
     {
-        var version = ++_highlightVersion;
-        ResetRoutes();
+        ResetWorkflowFocus(resetCaption: false);
         var accent = runtimeEvent.Disposition switch
         {
             PartnerDeskRuntimeDisposition.Risky or PartnerDeskRuntimeDisposition.Untrusted
@@ -722,36 +811,331 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             PartnerDeskRuntimeDisposition.Safe or PartnerDeskRuntimeDisposition.SimulatedEffect => SafeRoute,
             _ => NeutralRoute,
         };
-
-        if (HasActor(runtimeEvent, "user")) UserAgentRoute = accent;
-        if (HasActor(runtimeEvent, "model")) AgentModelRoute = accent;
-        if (HasActor(runtimeEvent, "mcp") || HasActor(runtimeEvent, "report_partner_intelligence")) McpRoute = accent;
-        if (HasActor(runtimeEvent, "query_partner_database")) DatabaseRoute = accent;
-        if (HasActor(runtimeEvent, "send_email")) EmailRoute = accent;
-
-        if (runtimeEvent.Kind is PartnerDeskRuntimeEventKind.AgentWorking or PartnerDeskRuntimeEventKind.ModelRequestStarted)
-            AgentStatus = "Working — next action pending";
-        if (runtimeEvent.Kind == PartnerDeskRuntimeEventKind.ToolCompleted && HasActor(runtimeEvent, "query_partner_database"))
+        var surface = runtimeEvent.Disposition switch
         {
-            DatabaseStatus = runtimeEvent.Title;
-            DatabaseNodeAccent = runtimeEvent.Disposition == PartnerDeskRuntimeDisposition.Risky ? RiskRoute : SafeRoute;
-        }
-        if (runtimeEvent.Kind == PartnerDeskRuntimeEventKind.ToolCompleted && HasActor(runtimeEvent, "send_email"))
-        {
-            EmailStatus = runtimeEvent.Title;
-            EmailNodeAccent = runtimeEvent.Disposition == PartnerDeskRuntimeDisposition.Risky ? RiskRoute : SafeRoute;
-        }
-        if (runtimeEvent.Kind == PartnerDeskRuntimeEventKind.McpSessionReady)
-            McpStatus = EvilMode ? "Connected — untrusted" : "Connected — clean";
+            PartnerDeskRuntimeDisposition.Risky or PartnerDeskRuntimeDisposition.Untrusted
+                or PartnerDeskRuntimeDisposition.Failed => RiskNodeSurface,
+            PartnerDeskRuntimeDisposition.Blocked or PartnerDeskRuntimeDisposition.Withheld => BlockedNodeSurface,
+            PartnerDeskRuntimeDisposition.Safe or PartnerDeskRuntimeDisposition.SimulatedEffect => SafeNodeSurface,
+            _ => NeutralNodeSurface,
+        };
 
-        if (!transient) return;
-        await Task.Delay(650);
-        if (version == _highlightVersion) ResetRoutes();
+        WorkflowFocusText = $"EVENT {runtimeEvent.Sequence:000} · {runtimeEvent.Title}";
+        WorkflowFocusAccent = accent;
+
+        switch (runtimeEvent.Kind)
+        {
+            case PartnerDeskRuntimeEventKind.ModelProviderSelected:
+                FocusModel(accent, surface);
+                break;
+
+            case PartnerDeskRuntimeEventKind.RunConfigured:
+            case PartnerDeskRuntimeEventKind.RunStarted:
+            case PartnerDeskRuntimeEventKind.RetryStarted:
+                FocusAgent(accent, surface);
+                break;
+
+            case PartnerDeskRuntimeEventKind.UserMessageSubmitted:
+                FocusHuman(accent, surface);
+                FocusAgent(accent, surface);
+                UserRequestRoute = accent;
+                break;
+
+            case PartnerDeskRuntimeEventKind.AgentWorking:
+            case PartnerDeskRuntimeEventKind.ModelRequestStarted:
+                FocusAgent(accent, surface);
+                FocusModel(accent, surface);
+                ModelRequestRoute = accent;
+                AgentStatus = "Working — next action pending";
+                break;
+
+            case PartnerDeskRuntimeEventKind.ModelResponseReceived:
+                FocusModel(accent, surface);
+                FocusAgent(accent, surface);
+                ModelActionRoute = accent;
+                break;
+
+            case PartnerDeskRuntimeEventKind.McpSessionStarting:
+                FocusAgent(accent, surface);
+                FocusDispatcher(accent, surface);
+                FocusMcp(accent, surface);
+                McpCallRoute = accent;
+                McpAdmitRoute = accent;
+                break;
+
+            case PartnerDeskRuntimeEventKind.McpSessionReady:
+                FocusMcp(accent, surface);
+                FocusDispatcher(accent, surface);
+                McpInspectRoute = accent;
+                McpResultRoute = accent;
+                McpStatus = EvilMode ? "Connected — untrusted" : "Connected — clean";
+                break;
+
+            case PartnerDeskRuntimeEventKind.ToolProposed:
+                FocusToolProposal(ToolLaneFor(runtimeEvent), accent, surface);
+                break;
+
+            case PartnerDeskRuntimeEventKind.ToolExecutionStarted:
+                FocusToolExecution(ToolLaneFor(runtimeEvent), accent, surface);
+                break;
+
+            case PartnerDeskRuntimeEventKind.ToolCompleted:
+                FocusToolCompletion(ToolLaneFor(runtimeEvent), accent, surface);
+                if (HasActor(runtimeEvent, PartnerDatabaseTool.ToolName))
+                {
+                    DatabaseStatus = runtimeEvent.Title;
+                    DatabaseStatusAccent = runtimeEvent.Disposition == PartnerDeskRuntimeDisposition.Risky
+                        ? RiskRoute
+                        : SafeRoute;
+                }
+                else if (HasActor(runtimeEvent, EmailTool.ToolName))
+                {
+                    EmailStatus = runtimeEvent.Title;
+                    EmailStatusAccent = runtimeEvent.Disposition == PartnerDeskRuntimeDisposition.Risky
+                        ? RiskRoute
+                        : SafeRoute;
+                }
+                break;
+
+            case PartnerDeskRuntimeEventKind.GateFindingRecorded:
+            case PartnerDeskRuntimeEventKind.ResultWithheld:
+                FocusGateFinding(ToolLaneFor(runtimeEvent), accent, surface, runtimeEvent.Kind);
+                break;
+
+            case PartnerDeskRuntimeEventKind.ContainmentActivated:
+                FocusMcp(accent, surface);
+                McpGateAccent = accent;
+                McpInspectRoute = accent;
+                break;
+
+            case PartnerDeskRuntimeEventKind.AgentAnswerProduced:
+                FocusAgent(accent, surface);
+                FocusHuman(accent, surface);
+                UserAnswerRoute = accent;
+                break;
+
+            case PartnerDeskRuntimeEventKind.RunCompleted:
+                FocusAgent(accent, surface);
+                break;
+        }
     }
+
+    private void FocusToolProposal(ToolLane lane, IBrush accent, IBrush surface)
+    {
+        FocusDispatcher(accent, surface);
+        switch (lane)
+        {
+            case ToolLane.Mcp:
+                McpCallRoute = accent;
+                if (McpGateEnabled) McpGateAccent = accent;
+                break;
+            case ToolLane.Database:
+                DatabaseCallRoute = accent;
+                if (DatabaseGateActive) DatabaseGateAccent = accent;
+                break;
+            case ToolLane.Email:
+                EmailCallRoute = accent;
+                if (EmailGateActive) EmailGateAccent = accent;
+                break;
+        }
+    }
+
+    private void FocusToolExecution(ToolLane lane, IBrush accent, IBrush surface)
+    {
+        FocusToolProposal(lane, accent, surface);
+        switch (lane)
+        {
+            case ToolLane.Mcp:
+                McpAdmitRoute = accent;
+                FocusMcp(accent, surface);
+                break;
+            case ToolLane.Database:
+                DatabaseAllowRoute = accent;
+                FocusDatabase(accent, surface);
+                break;
+            case ToolLane.Email:
+                EmailAllowRoute = accent;
+                FocusEmail(accent, surface);
+                break;
+        }
+    }
+
+    private void FocusToolCompletion(ToolLane lane, IBrush accent, IBrush surface)
+    {
+        FocusDispatcher(accent, surface);
+        switch (lane)
+        {
+            case ToolLane.Mcp:
+                FocusMcp(accent, surface);
+                McpInspectRoute = accent;
+                if (McpGateEnabled) McpGateAccent = accent;
+                McpResultRoute = accent;
+                break;
+            case ToolLane.Database:
+                FocusDatabase(accent, surface);
+                DatabaseEffectRoute = accent;
+                DatabaseRowsRoute = accent;
+                break;
+            case ToolLane.Email:
+                FocusEmail(accent, surface);
+                EmailEffectRoute = accent;
+                EmailReceiptRoute = accent;
+                break;
+        }
+    }
+
+    private void FocusGateFinding(
+        ToolLane lane,
+        IBrush accent,
+        IBrush surface,
+        PartnerDeskRuntimeEventKind eventKind)
+    {
+        FocusDispatcher(accent, surface);
+        switch (lane)
+        {
+            case ToolLane.Mcp:
+                McpGateAccent = accent;
+                PulseShield(ToolLane.Mcp);
+                if (eventKind == PartnerDeskRuntimeEventKind.ResultWithheld)
+                {
+                    FocusMcp(accent, surface);
+                    McpInspectRoute = accent;
+                }
+                else
+                {
+                    McpCallRoute = accent;
+                }
+                break;
+            case ToolLane.Database:
+                DatabaseCallRoute = accent;
+                DatabaseGateAccent = accent;
+                PulseShield(ToolLane.Database);
+                break;
+            case ToolLane.Email:
+                EmailCallRoute = accent;
+                EmailGateAccent = accent;
+                PulseShield(ToolLane.Email);
+                break;
+        }
+    }
+
+    private int ShieldCount(ToolLane lane) => StoryEvents.Count(item =>
+        IsShieldedAction(item.Event) && ToolLaneFor(item.Event) == lane);
+
+    private static bool IsShieldedAction(ControlRoomEvent runtimeEvent) =>
+        runtimeEvent.Kind is PartnerDeskRuntimeEventKind.GateFindingRecorded
+            or PartnerDeskRuntimeEventKind.ResultWithheld
+        && runtimeEvent.Disposition is PartnerDeskRuntimeDisposition.Blocked
+            or PartnerDeskRuntimeDisposition.Withheld;
+
+    private void RaiseShieldCounter(ControlRoomEvent runtimeEvent)
+    {
+        if (!IsShieldedAction(runtimeEvent)) return;
+
+        switch (ToolLaneFor(runtimeEvent))
+        {
+            case ToolLane.Mcp:
+                RaisePropertyChanged(nameof(McpShieldCount));
+                RaisePropertyChanged(nameof(McpShieldAccent));
+                RaisePropertyChanged(nameof(McpShieldToolTip));
+                break;
+            case ToolLane.Database:
+                RaisePropertyChanged(nameof(DatabaseShieldCount));
+                RaisePropertyChanged(nameof(DatabaseShieldAccent));
+                RaisePropertyChanged(nameof(DatabaseShieldToolTip));
+                break;
+            case ToolLane.Email:
+                RaisePropertyChanged(nameof(EmailShieldCount));
+                RaisePropertyChanged(nameof(EmailShieldAccent));
+                RaisePropertyChanged(nameof(EmailShieldToolTip));
+                break;
+        }
+    }
+
+    private void PulseShield(ToolLane lane)
+    {
+        switch (lane)
+        {
+            case ToolLane.Mcp:
+                McpShieldOpacity = 1;
+                McpShieldSize = 36;
+                break;
+            case ToolLane.Database:
+                DatabaseShieldOpacity = 1;
+                DatabaseShieldSize = 36;
+                break;
+            case ToolLane.Email:
+                EmailShieldOpacity = 1;
+                EmailShieldSize = 36;
+                break;
+        }
+    }
+
+    private static string ShieldToolTip(string gate, int count) =>
+        $"{gate} shield · {count} enforced action{(count == 1 ? string.Empty : "s")} in this run";
+
+    private bool McpGateEnabled => GatekeeperEnabled && (ResultGateEnabled || ContainmentEnabled);
+    private bool DatabaseGateActive => GatekeeperEnabled && DatabaseGateEnabled;
+    private bool EmailGateActive => GatekeeperEnabled && EmailGateEnabled;
+
+    private static ToolLane ToolLaneFor(ControlRoomEvent runtimeEvent)
+    {
+        if (HasActor(runtimeEvent, PartnerDatabaseTool.ToolName)) return ToolLane.Database;
+        if (HasActor(runtimeEvent, EmailTool.ToolName)) return ToolLane.Email;
+        if (HasActor(runtimeEvent, "mcp") || HasActor(runtimeEvent, PartnerIntelServer.ToolName)) return ToolLane.Mcp;
+        return ToolLane.None;
+    }
+
+    private void FocusHuman(IBrush accent, IBrush surface) =>
+        (HumanNodeAccent, HumanNodeSurface) = (accent, surface);
+
+    private void FocusAgent(IBrush accent, IBrush surface) =>
+        (AgentNodeAccent, AgentNodeSurface) = (accent, surface);
+
+    private void FocusModel(IBrush accent, IBrush surface) =>
+        (ModelNodeAccent, ModelNodeSurface) = (accent, surface);
+
+    private void FocusDispatcher(IBrush accent, IBrush surface) =>
+        (DispatcherNodeAccent, DispatcherNodeSurface) = (accent, surface);
+
+    private void FocusMcp(IBrush accent, IBrush surface) =>
+        (McpNodeAccent, McpNodeSurface) = (accent, surface);
+
+    private void FocusDatabase(IBrush accent, IBrush surface) =>
+        (DatabaseNodeAccent, DatabaseNodeSurface) = (accent, surface);
+
+    private void FocusEmail(IBrush accent, IBrush surface) =>
+        (EmailNodeAccent, EmailNodeSurface) = (accent, surface);
 
     private static bool HasActor(ControlRoomEvent runtimeEvent, string actor) =>
         string.Equals(runtimeEvent.Source, actor, StringComparison.Ordinal)
         || string.Equals(runtimeEvent.Target, actor, StringComparison.Ordinal);
+
+    internal void PrepareRunPresentation(PartnerDeskRunConfiguration configuration, bool clearEvents)
+    {
+        if (clearEvents)
+        {
+            ClearEvents();
+        }
+
+        ResetWorkflowFocus();
+        AgentStatus = "Starting new run";
+        McpStatus = configuration.EvilMode
+            ? "Waiting to connect — untrusted supplier"
+            : "Waiting to connect — clean supplier";
+        DatabaseStatus = "No effects — new run";
+        EmailStatus = "No effects — new run";
+        DatabaseStatusAccent = IdleRoute;
+        EmailStatusAccent = IdleRoute;
+    }
+
+    private void ResetComparisonState()
+    {
+        IsComparisonVisible = false;
+        ComparisonWithout = "Not run";
+        ComparisonWith = "Not run";
+        ComparisonDelta = "Run the A/B experiment to compare actual effects.";
+    }
 
     private void ApplyEvidence(RunEvidence evidence, PhaseOutcome outcome)
     {
@@ -763,11 +1147,11 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         DatabaseStatus = evidence.ExecutedBulkReads > 0
             ? $"UNSAFE — {evidence.ExecutedBulkReads} bulk read(s)"
             : $"Safe — {databaseEffects} allowed read(s); {evidence.BulkReadAttempts} risky attempt(s)";
-        DatabaseNodeAccent = evidence.ExecutedBulkReads > 0 ? RiskRoute : SafeRoute;
+        DatabaseStatusAccent = evidence.ExecutedBulkReads > 0 ? RiskRoute : SafeRoute;
         EmailStatus = evidence.ExecutedExternalEmails > 0
             ? $"UNSAFE — {evidence.ExecutedExternalEmails} external send(s)"
             : $"Safe — {evidence.ExecutedInternalEmails} internal send(s); {evidence.ExternalEmailAttempts} risky attempt(s)";
-        EmailNodeAccent = evidence.ExecutedExternalEmails > 0 ? RiskRoute : SafeRoute;
+        EmailStatusAccent = evidence.ExecutedExternalEmails > 0 ? RiskRoute : SafeRoute;
     }
 
     private void ApplyPreset(DemoPhase phase)
@@ -789,8 +1173,9 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         AgentStatus = "Waiting for the user";
         DatabaseStatus = "No effects — demo not run";
         EmailStatus = "No effects — demo not run";
-        DatabaseNodeAccent = IdleRoute;
-        EmailNodeAccent = IdleRoute;
+        DatabaseStatusAccent = IdleRoute;
+        EmailStatusAccent = IdleRoute;
+        ResetWorkflowFocus();
         RunBadge = "READY";
         StatusMessage = phase switch
         {
@@ -875,8 +1260,9 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         AgentStatus = "Waiting for the user";
         DatabaseStatus = "No effects — configuration not run";
         EmailStatus = "No effects — configuration not run";
-        DatabaseNodeAccent = IdleRoute;
-        EmailNodeAccent = IdleRoute;
+        DatabaseStatusAccent = IdleRoute;
+        EmailStatusAccent = IdleRoute;
+        ResetWorkflowFocus();
     }
 
     private void RaiseGateLabels()
@@ -921,10 +1307,19 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         StoryEvents.Clear();
         SecurityEvents.Clear();
         DebugEvents.Clear();
+        RaisePropertyChanged(nameof(McpShieldCount));
+        RaisePropertyChanged(nameof(DatabaseShieldCount));
+        RaisePropertyChanged(nameof(EmailShieldCount));
+        RaisePropertyChanged(nameof(McpShieldAccent));
+        RaisePropertyChanged(nameof(DatabaseShieldAccent));
+        RaisePropertyChanged(nameof(EmailShieldAccent));
+        RaisePropertyChanged(nameof(McpShieldToolTip));
+        RaisePropertyChanged(nameof(DatabaseShieldToolTip));
+        RaisePropertyChanged(nameof(EmailShieldToolTip));
         SelectedEvent = null;
         _replay = null;
         AutoFollowEvents = true;
-        ResetRoutes();
+        ResetWorkflowFocus();
         RaisePropertyChanged(nameof(IsStoryEmpty));
         RaisePropertyChanged(nameof(IsSecurityEmpty));
         RaisePropertyChanged(nameof(IsDebugEmpty));
@@ -971,9 +1366,36 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         StatusMessage = "Pure replay — no model, MCP server, database tool, or email tool is being invoked.";
     }
 
-    private void ResetRoutes()
+    private void ResetWorkflowFocus(bool resetCaption = true)
     {
-        UserAgentRoute = AgentModelRoute = McpRoute = DatabaseRoute = EmailRoute = IdleRoute;
+        HumanNodeAccent = AgentNodeAccent = ModelNodeAccent = DispatcherNodeAccent =
+            McpNodeAccent = DatabaseNodeAccent = EmailNodeAccent = IdleRoute;
+        HumanNodeSurface = AgentNodeSurface = ModelNodeSurface = DispatcherNodeSurface =
+            McpNodeSurface = DatabaseNodeSurface = EmailNodeSurface = IdleNodeSurface;
+
+        UserRequestRoute = UserAnswerRoute = ModelRequestRoute = ModelActionRoute = IdleRoute;
+        McpCallRoute = McpResultRoute = McpGateAccent = McpAdmitRoute = McpInspectRoute = IdleRoute;
+        DatabaseCallRoute = DatabaseRowsRoute = DatabaseGateAccent = DatabaseAllowRoute =
+            DatabaseEffectRoute = IdleRoute;
+        EmailCallRoute = EmailReceiptRoute = EmailGateAccent = EmailAllowRoute = EmailEffectRoute = IdleRoute;
+        McpShieldOpacity = McpShieldCount > 0 ? 0.72 : 0.56;
+        DatabaseShieldOpacity = DatabaseShieldCount > 0 ? 0.72 : 0.56;
+        EmailShieldOpacity = EmailShieldCount > 0 ? 0.72 : 0.56;
+        McpShieldSize = DatabaseShieldSize = EmailShieldSize = 32;
+
+        if (resetCaption)
+        {
+            WorkflowFocusText = "IDLE · Waiting for the next run event.";
+            WorkflowFocusAccent = MutedAccent;
+        }
+    }
+
+    private enum ToolLane
+    {
+        None,
+        Mcp,
+        Database,
+        Email,
     }
 
     private static string EvidenceLine(RunEvidence evidence) =>

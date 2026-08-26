@@ -4,11 +4,14 @@ using GatekeeperDemo.Core;
 
 namespace GatekeeperDemo.App.ViewModels;
 
-public sealed class EventItemViewModel
+public sealed class EventItemViewModel : BindableBase
 {
+    private bool _isExpanded;
+
     public EventItemViewModel(ControlRoomEvent runtimeEvent)
     {
         Event = runtimeEvent;
+        ToggleExpandedCommand = new RelayCommand(ToggleExpanded, () => HasExpandableContent);
         (Badge, Icon, Accent) = runtimeEvent.Disposition switch
         {
             PartnerDeskRuntimeDisposition.Risky => ("RISK", "!", Brush.Parse("#FF6577")),
@@ -30,6 +33,8 @@ public sealed class EventItemViewModel
 
     public IBrush Accent { get; }
 
+    public RelayCommand ToggleExpandedCommand { get; }
+
     public string Sequence => $"{Event.Sequence:000}";
 
     public string Time => $"+{Event.Elapsed.TotalSeconds:0.000}s";
@@ -43,6 +48,45 @@ public sealed class EventItemViewModel
     public string Payload => string.IsNullOrWhiteSpace(Event.PayloadPreview)
         ? "No payload preview was retained for this event."
         : Event.PayloadPreview;
+
+    public bool HasExpandableContent => !string.IsNullOrWhiteSpace(Event.PayloadPreview);
+
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        private set
+        {
+            if (!SetProperty(ref _isExpanded, value)) return;
+            RaisePropertyChanged(nameof(ExpandControlText));
+            RaisePropertyChanged(nameof(IsCollapsed));
+            RaisePropertyChanged(nameof(IsExpandControlVisible));
+        }
+    }
+
+    public bool IsCollapsed => !IsExpanded;
+
+    public bool IsExpandControlVisible => HasExpandableContent && IsCollapsed;
+
+    public string ExpandControlText => $"{(IsExpanded ? "▼" : "▶")}  {PayloadLabel}";
+
+    public string PayloadLabel => Event.Kind switch
+    {
+        PartnerDeskRuntimeEventKind.UserMessageSubmitted => "SENT MESSAGE",
+        PartnerDeskRuntimeEventKind.AgentAnswerProduced => "RECEIVED MESSAGE",
+        PartnerDeskRuntimeEventKind.ModelRequestStarted => "MODEL INPUT",
+        PartnerDeskRuntimeEventKind.ModelResponseReceived => "MODEL OUTPUT",
+        PartnerDeskRuntimeEventKind.ToolProposed => "TOOL CALL",
+        PartnerDeskRuntimeEventKind.ToolCompleted => "TOOL RESPONSE",
+        _ => "PAYLOAD",
+    };
+
+    private void ToggleExpanded()
+    {
+        if (HasExpandableContent)
+        {
+            IsExpanded = !IsExpanded;
+        }
+    }
 
     private static string DisplayActor(string actor) => actor switch
     {
