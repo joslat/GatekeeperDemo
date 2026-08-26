@@ -55,6 +55,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private Task _projectionTask = Task.CompletedTask;
     private CancellationTokenSource? _projectionCancellation;
     private bool _isRunning;
+    private bool _isSetupExpanded = true;
     private bool _autoFollowEvents = true;
     private bool _audiencePacing = true;
     private int _selectedModelIndex;
@@ -193,6 +194,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
             if (!SetProperty(ref _isRunning, value)) return;
             RaisePropertyChanged(nameof(CanEditConfiguration));
             RaisePropertyChanged(nameof(CanEditIndividualGates));
+            RaisePropertyChanged(nameof(SetupPanelAction));
             RaiseCommandStates();
         }
     }
@@ -200,6 +202,45 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     public bool CanEditConfiguration => !IsRunning;
 
     public bool CanEditIndividualGates => !IsRunning && GatekeeperEnabled;
+
+    /// <summary>
+    /// Controls the model and run-configuration panel. It starts open so the first action is discoverable,
+    /// then collapses when execution begins to give the live topology the available screen height.
+    /// </summary>
+    public bool IsSetupExpanded
+    {
+        get => _isSetupExpanded;
+        set
+        {
+            if (!SetProperty(ref _isSetupExpanded, value)) return;
+            RaisePropertyChanged(nameof(SetupPanelAction));
+        }
+    }
+
+    public string SetupPanelAction => IsRunning
+        ? "RUNNING · OPEN FOR CANCEL"
+        : IsSetupExpanded
+            ? "COLLAPSE TO ENLARGE LIVE FLOW"
+            : "EDIT MODEL, DEMO OR REQUEST";
+
+    public string SetupSelectionSummary
+    {
+        get
+        {
+            var scene = _canonicalPhase switch
+            {
+                DemoPhase.Clean => "Demo 1 · Clean baseline",
+                DemoPhase.Compromised => "Demo 2 · Attack without gates",
+                DemoPhase.Level1 => "Demo 3 · Tool gates",
+                DemoPhase.Level2 => "Demo 4 · Detect + contain",
+                _ => "Custom configuration",
+            };
+            var protection = GatekeeperEnabled
+                ? $"Gatekeeper on · {SelectedProtectionCount()} protection(s)"
+                : "Gatekeeper off";
+            return $"{scene}  ·  {ModelNodeTitle}  ·  {protection}";
+        }
+    }
 
     public string Question
     {
@@ -557,6 +598,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
 
         PrepareRunPresentation(configuration, clearEvents);
         StartEventProjection();
+        IsSetupExpanded = false;
         IsRunning = true;
         RunBadge = modelConfiguration.IsDeterministic ? "SCRIPTED RUN" : "AZURE RUN";
         StatusMessage = $"Running {configuration.Name} with {modelConfiguration.DisplayName}…";
@@ -653,6 +695,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
 
         EvaluationProgress.Clear();
         EvaluationReport = "Evaluation running…";
+        IsSetupExpanded = false;
         IsRunning = true;
         RunBadge = "EVALS";
         EvaluationStatus = $"Running 4 arms × {EvaluationRuns} sample(s) through the imported .Evals project…";
@@ -1324,7 +1367,18 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         RaisePropertyChanged(nameof(Level1PresetBorder));
         RaisePropertyChanged(nameof(Level2PresetBackground));
         RaisePropertyChanged(nameof(Level2PresetBorder));
+        RaisePropertyChanged(nameof(SetupSelectionSummary));
         RaiseCommandStates();
+    }
+
+    private int SelectedProtectionCount()
+    {
+        var count = 0;
+        if (DatabaseGateEnabled) count++;
+        if (EmailGateEnabled) count++;
+        if (ResultGateEnabled) count++;
+        if (ContainmentEnabled) count++;
+        return count;
     }
 
     private static IBrush SceneButtonBackground(bool selected) =>

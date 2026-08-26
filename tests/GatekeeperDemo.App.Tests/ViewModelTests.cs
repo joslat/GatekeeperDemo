@@ -22,6 +22,23 @@ public sealed class ViewModelTests
         Assert.Contains("SCRIPTED", viewModel.ModelModeBadge, StringComparison.Ordinal);
         Assert.Contains("no credentials", viewModel.ModelReadinessText, StringComparison.Ordinal);
         Assert.Null(viewModel.AzureDeployment);
+        Assert.True(viewModel.IsSetupExpanded);
+        Assert.Contains("Demo 1", viewModel.SetupSelectionSummary, StringComparison.Ordinal);
+        Assert.Contains("Scripted", viewModel.SetupSelectionSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SetupPanel_CanCollapseWithoutChangingTheSelectedRun()
+    {
+        await using var viewModel = new MainWindowViewModel(null, null, null);
+        var summary = viewModel.SetupSelectionSummary;
+
+        viewModel.IsSetupExpanded = false;
+
+        Assert.False(viewModel.IsSetupExpanded);
+        Assert.Equal(summary, viewModel.SetupSelectionSummary);
+        Assert.Contains("EDIT MODEL", viewModel.SetupPanelAction, StringComparison.Ordinal);
+        Assert.True(viewModel.RunCommand.CanExecute(null));
     }
 
     [Fact]
