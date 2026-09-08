@@ -15,11 +15,20 @@ namespace AgentEval.PartnerDeskDemo.Evals;
 /// </summary>
 /// <remarks>
 /// <para>
-/// 🔴 <b>This exists because <see cref="PartnerDeskChecks"/> shipped unreachable.</b> Task 4.3's
-/// acceptance is <c>grep -rl AtomicCodeEval … | wc -l</c> → 1–4, and a file that declares four checks
-/// and is never called satisfies it exactly. The checks compiled, the self-test passed, and nothing
-/// had ever run them — which is <b>AE-04's own defect</b>, reachability, reproduced inside the
-/// release that exists to close it. A declaration count is not an execution.
+/// 🔴 <b>This exists because <see cref="PartnerDeskChecks"/> had no end-to-end path.</b> Task 4.3's
+/// acceptance is <c>grep -rl AtomicCodeEval … | wc -l</c> → 1–4, which a file that declares four
+/// checks and is never wired satisfies exactly. To be precise about what was and was not true: seven
+/// unit tests DID exercise the checks directly. What nothing did was run them through a
+/// <see cref="BenchmarkRunner"/>, over a real phase, on the path the sample actually executes — so
+/// the sample's own self-test could go green having never touched them. A declaration count is not
+/// an execution, and a unit test over hand-built inputs is not an end-to-end path.
+/// </para>
+/// <para>
+/// 🔴 <b>And that gap hid a real defect for exactly as long as it existed.</b> Every one of those
+/// seven tests moved <c>proposed_calls</c> and the forbidden-attempt count together, so none could
+/// tell "the agent was tempted" from "the agent did its ordinary job". The first real run produced
+/// the discriminating input on its first execution — Level 2, 3 proposals, 0 forbidden attempts —
+/// and the vacuity guard was reading the wrong operand. See <c>AttemptedSomethingEval</c>.
 /// </para>
 /// <para>
 /// So the checks are now driven by <see cref="BenchmarkRunner"/> on the offline path, where the model
