@@ -3,8 +3,7 @@
 
 using AgentEval.PartnerDeskDemo.Demo;
 using AgentEval.PartnerDeskDemo.Mcp;
-using Azure;
-using Azure.AI.OpenAI;
+using AgentEval.PartnerDeskDemo.Providers;
 using Microsoft.Extensions.AI;
 
 namespace AgentEval.PartnerDeskDemo;
@@ -41,18 +40,45 @@ public static class Program
 
         var output = DemoOutput.Console;
         var forceOffline = args.Contains("--offline", StringComparer.Ordinal);
-        var deployment = ReadOption(args, "--deployment")
-            ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
-        var live = !forceOffline && AzureOpenAIIsConfigured(deployment);
+        // --deployment is the name this demo shipped with; --model is what every non-Azure host calls it.
+        var modelOverride = ReadOption(args, "--model") ?? ReadOption(args, "--deployment");
+        var settings = forceOffline ? InferenceProviderSettings.NotConfigured("--offline was passed.")
+                                    : InferenceProviderEnvironment.Settings;
+        var live = settings.IsConfigured;
+
+        // A provider that was named or half-configured and cannot be built is a typo, not an unconfigured machine.
+        // Dropping to the scripted model here would present fixed decisions as if a live model had made them.
+        if (!forceOffline
+            && !live
+            && InferenceProviderEnvironment.AnyConfigurationAttempted(Environment.GetEnvironmentVariable))
+        {
+            Console.Error.WriteLine(
+                $"A provider is selected or partially configured but could not be used. {settings.Diagnostic}");
+            Console.Error.WriteLine(
+                "  Fix it, or unset every provider variable to run the scripted offline demo, or pass --offline.");
+            return 2;
+        }
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+
+        var model = live ? modelOverride ?? settings.Model : null;
+        if (live)
+        {
+            // Build once here so a bad endpoint or key is reported before the title claims a live run.
+            var (_, _, diagnostic) = ProviderChatClientFactory.TryCreate(settings, model, generousTimeout: true);
+            if (diagnostic is not null)
+            {
+                Console.Error.WriteLine(diagnostic);
+                return 2;
+            }
+        }
 
         var outbox = Path.Combine(AppContext.BaseDirectory, "outbox.log");
         var register = Tools.PartnerRegister.Load();
         await using var runner = new PartnerDeskRunner(
             context => live
-                ? CreateAzureClient(deployment!)
+                ? CreateLiveClient(settings, model)
                 : ScriptedPartnerDeskModel.Create(context, register),
             output,
             outbox,
@@ -62,7 +88,7 @@ public static class Program
         // Start every session from an empty outbox so "here is what would have left the building" is unambiguous.
         runner.ResetOutbox();
 
-        Title(output, live, deployment, outbox);
+        Title(output, settings, model, outbox);
         DemoContractRenderer.Print(output);
 
         var phases = ParsePhases(args);
@@ -295,7 +321,7 @@ public static class Program
         return null;
     }
 
-    private static void Title(DemoOutput output, bool live, string? deployment, string outbox)
+    private static void Title(DemoOutput output, InferenceProviderSettings settings, string? model, string outbox)
     {
         output.Line();
         output.Rule('=');
@@ -303,11 +329,11 @@ public static class Program
         output.Line("  PartnerDesk — a due-diligence assistant, and the third-party MCP that turns on it");
         output.Rule('=');
         output.Paragraph(
-            live
-                ? $"Model: live Azure OpenAI, deployment '{deployment}'. Override with --deployment <name>."
+            settings.IsConfigured
+                ? $"Model: live {ProviderChatClientFactory.Banner(settings, model)}. Override with --model <name>."
                 : "Model: SCRIPTED offline provider. The model's decisions are fixed, so this path verifies the " +
-                  "gates, not the model's susceptibility. Set AZURE_OPENAI_ENDPOINT / _API_KEY / _DEPLOYMENT for " +
-                  "the live path.");
+                  $"gates, not the model's susceptibility. Set {InferenceProviderEnvironment.SelectorVariable} " +
+                  "and that provider's variables for the live path (bitdeer needs only BITDEER_API_KEY).");
         output.Paragraph(
             "PartnerIntel is a real MCP server started as a child process of this one; get_company_report is a " +
             "genuine tools/call over stdio.");
@@ -329,15 +355,13 @@ public static class Program
         }
     }
 
-    private static bool AzureOpenAIIsConfigured(string? deployment) =>
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT"))
-        && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY"))
-        && !string.IsNullOrWhiteSpace(deployment);
-
-    private static IChatClient CreateAzureClient(string deployment)
+    /// <summary>
+    /// Builds the client for one phase. The settings were validated before the title printed, so a failure here is
+    /// unreachable in practice; it throws rather than returning a client that silently is not the chosen host.
+    /// </summary>
+    private static IChatClient CreateLiveClient(InferenceProviderSettings settings, string? model)
     {
-        var endpoint = new Uri(Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")!);
-        var key = new AzureKeyCredential(Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")!);
-        return new AzureOpenAIClient(endpoint, key).GetChatClient(deployment).AsIChatClient();
+        var (client, _, diagnostic) = ProviderChatClientFactory.TryCreate(settings, model, generousTimeout: true);
+        return client ?? throw new InvalidOperationException(diagnostic ?? "No inference provider is configured.");
     }
 }

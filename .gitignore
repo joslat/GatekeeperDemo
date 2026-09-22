@@ -9,3 +9,4 @@ TestResults/
 *.log
 outbox/
 runs/
+strategy/

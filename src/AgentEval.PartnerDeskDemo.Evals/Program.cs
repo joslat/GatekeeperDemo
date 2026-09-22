@@ -3,9 +3,8 @@
 
 using AgentEval.PartnerDeskDemo;
 using AgentEval.PartnerDeskDemo.Demo;
+using AgentEval.PartnerDeskDemo.Providers;
 using AgentEval.PartnerDeskDemo.Tools;
-using Azure;
-using Azure.AI.OpenAI;
 using Microsoft.Extensions.AI;
 
 namespace AgentEval.PartnerDeskDemo.Evals;
@@ -41,19 +40,34 @@ public static class Program
         }
 
         var useJudge = args.Contains("--judge", StringComparer.Ordinal);
-        var deployment = ReadOption(args, "--deployment")
-            ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
-        var live = !offline && AzureConfigured(deployment);
+        // --deployment is the name this harness shipped with; --model is what every non-Azure host calls it.
+        var modelOverride = ReadOption(args, "--model") ?? ReadOption(args, "--deployment");
+        var settings = offline ? InferenceProviderSettings.NotConfigured("--offline was passed.")
+                               : InferenceProviderEnvironment.Settings;
+        var live = settings.IsConfigured;
+        var model = live ? modelOverride ?? settings.Model : null;
         var runsPerArm = ReadInt(args, "--runs") ?? (live ? 10 : 2);
         var arms = ReadArms(args);
         var jsonPath = ReadOption(args, "--json");
 
         if (!live && !offline)
         {
+            Console.Error.WriteLine($"No inference provider is usable. {settings.Diagnostic}");
             Console.Error.WriteLine(
-                "Azure OpenAI is not configured. Set AZURE_OPENAI_ENDPOINT / _API_KEY / _DEPLOYMENT for the live " +
-                "evaluation, or pass --offline for the deterministic self-check.");
+                "  Pass --offline for the deterministic self-check, or configure a provider " +
+                "(bitdeer needs only BITDEER_API_KEY).");
             return 2;
+        }
+
+        if (live)
+        {
+            // Build once up front so a bad key or endpoint fails before the first arm burns tokens.
+            var (_, _, diagnostic) = ProviderChatClientFactory.TryCreate(settings, model, generousTimeout: true);
+            if (diagnostic is not null)
+            {
+                Console.Error.WriteLine(diagnostic);
+                return 2;
+            }
         }
 
         using var cts = new CancellationTokenSource();
@@ -61,12 +75,16 @@ public static class Program
 
         var register = PartnerRegister.Load();
         var outbox = Path.Combine(AppContext.BaseDirectory, "eval-outbox.log");
-        var modelLabel = live ? $"Azure OpenAI '{deployment}'" : "scripted (offline, deterministic)";
+        // model@provider, because the host is part of what was measured: the same model name on two hosts is not
+        // the same measurement, and this label is what lands in the report.
+        var modelLabel = live
+            ? (settings with { Model = model }).ModelIdentity
+            : "scripted (offline, deterministic)";
 
         ConcealmentJudge? judge = null;
         if (useJudge && live)
         {
-            judge = new ConcealmentJudge(CreateAzureClient(deployment!));
+            judge = new ConcealmentJudge(CreateLiveClient(settings, model));
         }
         else if (useJudge)
         {
@@ -74,7 +92,7 @@ public static class Program
         }
 
         Func<PhaseRunContext, IChatClient> factory = live
-            ? _ => CreateAzureClient(deployment!)
+            ? _ => CreateLiveClient(settings, model)
             : context => ScriptedPartnerDeskModel.Create(context, register);
 
         Console.WriteLine($"Evaluating {arms.Length} arm(s) x {runsPerArm} run(s) against {modelLabel}.");
@@ -83,6 +101,7 @@ public static class Program
 
         var results = new List<ArmResult>();
         var cancelled = false;
+        IReadOnlyList<string> checkFailures = [];
         await using (var evaluator = new PartnerDeskEvaluator(factory, outbox, register, judge, Console.WriteLine))
         {
             try
@@ -92,6 +111,21 @@ public static class Program
                     Console.WriteLine($"--- Phase {(int)phase}: {phase} ---");
                     results.Add(await evaluator.EvaluateArmAsync(phase, runsPerArm, StandardQuestionText, cts.Token)
                         .ConfigureAwait(false));
+                    Console.WriteLine();
+                }
+
+                // The four admitted checks, RUN — not merely declared. Offline only: their expectations
+                // are about the scripted model, and a live one would fail them for the right reasons.
+                if (selfTest)
+                {
+                    Console.WriteLine("--- Admitted checks (AgentEval BenchmarkRunner) ---");
+                    checkFailures = await AdmittedChecksSelfTest
+                        .RunAsync(evaluator, StandardQuestionText, cts.Token)
+                        .ConfigureAwait(false);
+                    Console.WriteLine(
+                        checkFailures.Count == 0
+                            ? "  4 checks x 4 arms ran; every expectation held."
+                            : $"  {checkFailures.Count} expectation(s) failed.");
                     Console.WriteLine();
                 }
             }
@@ -124,7 +158,7 @@ public static class Program
 
         if (selfTest)
         {
-            return RunSelfTestAssertions(run);
+            return RunSelfTestAssertions(run, checkFailures);
         }
 
         // A non-self-test run reports; it does not fail on the model-dependent compromised arm.
@@ -138,9 +172,9 @@ public static class Program
     /// Deterministic invariants for the offline (scripted) path: the harness itself must produce the expected
     /// aggregates. This is the eval's own CI gate, and it asserts over the aggregated metrics, not printed text.
     /// </summary>
-    private static int RunSelfTestAssertions(EvalRun run)
+    private static int RunSelfTestAssertions(EvalRun run, IReadOnlyList<string> checkFailures)
     {
-        var failures = new List<string>();
+        var failures = new List<string>(checkFailures);
 
         void Expect(bool condition, string message)
         {
@@ -279,16 +313,14 @@ public static class Program
         return null;
     }
 
-    private static bool AzureConfigured(string? deployment) =>
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT"))
-        && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY"))
-        && !string.IsNullOrWhiteSpace(deployment);
-
-    private static IChatClient CreateAzureClient(string deployment)
+    /// <summary>
+    /// Builds the client for one run. The settings were validated before the first arm started, so a failure here
+    /// is unreachable in practice; it throws rather than quietly measuring a host nobody chose.
+    /// </summary>
+    private static IChatClient CreateLiveClient(InferenceProviderSettings settings, string? model)
     {
-        var endpoint = new Uri(Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")!);
-        var key = new AzureKeyCredential(Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")!);
-        return new AzureOpenAIClient(endpoint, key).GetChatClient(deployment).AsIChatClient();
+        var (client, _, diagnostic) = ProviderChatClientFactory.TryCreate(settings, model, generousTimeout: true);
+        return client ?? throw new InvalidOperationException(diagnostic ?? "No inference provider is configured.");
     }
 
     private static void PrintUsage()
@@ -298,12 +330,16 @@ public static class Program
 
               --runs N          runs per arm (default 10 live, 2 offline)
               --arms 1,2,3,4    which phases to measure (default all four)
-              --deployment NAME Azure OpenAI deployment (default AZURE_OPENAI_DEPLOYMENT)
+              --model NAME      model on the selected provider (default: that provider's model variable)
+              --deployment NAME the former name of --model; still accepted
               --judge           enable the shadow concealment judge (live only)
               --json PATH       also write a machine-readable report
               --offline         use the scripted model (deterministic; no credentials)
               --selftest        assert the deterministic offline invariants; exit non-zero on failure
               -h, --help        this text
+
+            The host comes from AI_INFERENCE_PROVIDER = azure | bitdeer | openai | foundry | openai-compatible,
+            or is auto-detected in that order when the variable is unset. bitdeer needs only BITDEER_API_KEY.
 
             Live example:  dotnet run --project samples/AgentEval.PartnerDeskDemo.Evals -- --runs 20 --judge
             CI example:    dotnet run --project samples/AgentEval.PartnerDeskDemo.Evals -- --offline --selftest

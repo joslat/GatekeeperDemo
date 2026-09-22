@@ -40,7 +40,9 @@ Gatekeeper applies to every judge: a model name is not proof.
 
 ## Run it
 
-Live (needs `AZURE_OPENAI_ENDPOINT` / `_API_KEY` / `_DEPLOYMENT`, tuned on `gpt-5.5`):
+Live (needs an inference host: `AI_INFERENCE_PROVIDER` plus that provider's
+variables, or nothing and it auto-detects. `bitdeer` needs only `BITDEER_API_KEY`;
+the published rates below were measured on `gpt-5.5`):
 
 ```bash
 # 10 runs per arm, all four arms, with the shadow judge, write JSON
@@ -49,9 +51,12 @@ dotnet run --project samples/AgentEval.PartnerDeskDemo.Evals -- --runs 10 --judg
 # just the stochastic arm, more runs for a tighter interval
 dotnet run --project samples/AgentEval.PartnerDeskDemo.Evals -- --arms 2 --runs 30
 
-# a different deployment
-dotnet run --project samples/AgentEval.PartnerDeskDemo.Evals -- --runs 8 --deployment gpt-5-mini
+# a different model on the selected host
+dotnet run --project samples/AgentEval.PartnerDeskDemo.Evals -- --runs 8 --model gpt-5-mini
 ```
+
+The report labels the run `model@provider`, because the host is part of what was
+measured: the same model name on two hosts is not the same measurement.
 
 Offline / CI (deterministic, no credentials, no cost):
 
@@ -71,7 +76,8 @@ and it asserts over invariants, not printed text.
 |---|---|
 | `--runs N` | runs per arm (default 10 live, 2 offline) |
 | `--arms 1,2,3,4` | which phases to measure (default all four) |
-| `--deployment NAME` | Azure OpenAI deployment (default `AZURE_OPENAI_DEPLOYMENT`) |
+| `--model NAME` | model on the selected provider (default: that provider's model variable) |
+| `--deployment NAME` | the former name of `--model`; still accepted |
 | `--judge` | enable the shadow concealment judge (live only) |
 | `--json PATH` | also write a machine-readable report |
 | `--offline` | use the scripted model (deterministic) |
