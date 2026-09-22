@@ -1,4 +1,5 @@
 using AgentEval.PartnerDeskDemo.Demo;
+using AgentEval.PartnerDeskDemo.Providers;
 using AgentEval.PartnerDeskDemo.Tools;
 using GatekeeperDemo.App.ViewModels;
 using GatekeeperDemo.Core;
@@ -21,7 +22,7 @@ public sealed class ViewModelTests
         Assert.Equal(0, viewModel.SelectedModelIndex);
         Assert.Contains("SCRIPTED", viewModel.ModelModeBadge, StringComparison.Ordinal);
         Assert.Contains("no credentials", viewModel.ModelReadinessText, StringComparison.Ordinal);
-        Assert.Null(viewModel.AzureDeployment);
+        Assert.Null(viewModel.SelectedModel);
         Assert.True(viewModel.IsSetupExpanded);
         Assert.Contains("Demo 1", viewModel.SetupSelectionSummary, StringComparison.Ordinal);
         Assert.Contains("Scripted", viewModel.SetupSelectionSummary, StringComparison.Ordinal);
@@ -49,7 +50,7 @@ public sealed class ViewModelTests
             SelectedModelIndex = 1,
         };
 
-        Assert.True(viewModel.IsAzureOpenAiSelected);
+        Assert.True(viewModel.IsLiveModelSelected);
         Assert.False(viewModel.IsConfigurationValid);
         Assert.False(viewModel.RunCommand.CanExecute(null));
         Assert.Contains("AZURE_OPENAI_ENDPOINT", viewModel.ModelReadinessText, StringComparison.Ordinal);
@@ -85,7 +86,7 @@ public sealed class ViewModelTests
         Assert.Equal(0, viewModel.SelectedModelIndex);
         viewModel.SelectedModelIndex = 2;
 
-        Assert.Equal("gpt-5-mini", viewModel.AzureDeployment);
+        Assert.Equal("gpt-5-mini", viewModel.SelectedModel);
         Assert.Contains("measured 5/5", viewModel.ModelSelectionEvidence, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("gpt-5-mini", viewModel.ModelReadinessText, StringComparison.Ordinal);
         Assert.True(viewModel.IsConfigurationValid);
@@ -100,8 +101,62 @@ public sealed class ViewModelTests
             "gpt-5-chat");
 
         Assert.Equal(3, viewModel.SelectedModelIndex);
-        Assert.Equal("gpt-5-chat", viewModel.AzureDeployment);
-        Assert.True(viewModel.IsAzureOpenAiSelected);
+        Assert.Equal("gpt-5-chat", viewModel.SelectedModel);
+        Assert.True(viewModel.IsLiveModelSelected);
+    }
+
+    [Fact]
+    public async Task BitdeerEnvironment_OffersItsModelAndPreselectsIt()
+    {
+        var settings = InferenceProviderEnvironment.Resolve(Env(
+            ("AI_INFERENCE_PROVIDER", "bitdeer"),
+            ("BITDEER_API_KEY", "not-a-real-secret")));
+
+        await using var viewModel = new MainWindowViewModel(settings);
+
+        Assert.Equal(1, viewModel.SelectedModelIndex);
+        Assert.Equal(InferenceProviderEnvironment.BitdeerDefaultModel, viewModel.SelectedModel);
+        Assert.True(viewModel.IsLiveModelSelected);
+        Assert.True(viewModel.IsConfigurationValid);
+        Assert.Contains("Bitdeer", viewModel.ModelNodeTitle, StringComparison.Ordinal);
+        // An unmeasured model says so rather than borrowing the Azure deployments' published rates.
+        Assert.Contains("UNMEASURED", viewModel.ModelSelectionEvidence, StringComparison.Ordinal);
+        Assert.DoesNotContain("not-a-real-secret", viewModel.ModelReadinessText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BitdeerWithAlternates_PutsEveryModelOnTheDropdown()
+    {
+        var settings = InferenceProviderEnvironment.Resolve(Env(
+            ("AI_INFERENCE_PROVIDER", "bitdeer"),
+            ("BITDEER_API_KEY", "not-a-real-secret"),
+            ("BITDEER_MODEL_2", "moonshotai/Kimi-K2.5")));
+
+        await using var viewModel = new MainWindowViewModel(settings);
+
+        Assert.Equal(3, viewModel.ModelOptions.Count);
+        Assert.Contains("Scripted", viewModel.ModelOptions[0], StringComparison.Ordinal);
+        Assert.Contains(
+            InferenceProviderEnvironment.BitdeerDefaultModel, viewModel.ModelOptions[1], StringComparison.Ordinal);
+        Assert.Contains("moonshotai/Kimi-K2.5", viewModel.ModelOptions[2], StringComparison.Ordinal);
+
+        viewModel.SelectedModelIndex = 2;
+        Assert.Equal("moonshotai/Kimi-K2.5", viewModel.SelectedModel);
+    }
+
+    [Fact]
+    public async Task MisconfiguredProvider_BlocksTheRunInsteadOfFallingBackToScripted()
+    {
+        // The selector names a host whose key is absent. Dropping to the scripted model here would present
+        // fixed decisions as if a live model had made them.
+        var settings = InferenceProviderEnvironment.Resolve(Env(("AI_INFERENCE_PROVIDER", "bitdeer")));
+
+        await using var viewModel = new MainWindowViewModel(settings) { SelectedModelIndex = 1 };
+
+        Assert.False(viewModel.IsConfigurationValid);
+        Assert.False(viewModel.RunCommand.CanExecute(null));
+        Assert.Contains("BITDEER_API_KEY", viewModel.ModelReadinessText, StringComparison.Ordinal);
+        Assert.Contains("Model blocked", viewModel.ConfigurationNotice, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -425,4 +480,13 @@ public sealed class ViewModelTests
             null,
             null);
 
+    /// <summary>
+    /// A dictionary in place of the process environment, so these tests configure a provider without touching
+    /// global mutable state that the rest of the suite would then see.
+    /// </summary>
+    private static Func<string, string?> Env(params (string Name, string Value)[] variables)
+    {
+        var map = variables.ToDictionary(v => v.Name, v => v.Value, StringComparer.Ordinal);
+        return name => map.TryGetValue(name, out var value) ? value : null;
+    }
 }

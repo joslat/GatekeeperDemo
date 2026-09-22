@@ -34,13 +34,25 @@ there is no SMTP client, no socket, and no HTTP anywhere in either tool.
 ## Prerequisites
 
 - **.NET 10 SDK.**
-- **Azure OpenAI** for the live path — set three environment variables:
-  - `AZURE_OPENAI_ENDPOINT` — e.g. `https://<resource>.openai.azure.com/`
-  - `AZURE_OPENAI_API_KEY`
-  - `AZURE_OPENAI_DEPLOYMENT` — a chat/reasoning deployment (tuned against `gpt-5.5`)
+- **An inference host** for the live path. `AI_INFERENCE_PROVIDER` picks one of
+  `azure`, `bitdeer`, `openai`, `foundry`, `openai-compatible`; leave it unset to
+  auto-detect in that order.
+  - `bitdeer` — `BITDEER_API_KEY` only. Defaults to `zai-org/GLM-5.3-Flash` at
+    `https://api-inference.bitdeer.ai/v1`; override with `BITDEER_MODEL` /
+    `BITDEER_ENDPOINT`.
+  - `azure` — `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`,
+    `AZURE_OPENAI_DEPLOYMENT` (the demo is tuned against `gpt-5.5`).
+  - `openai` — `OPENAI_API_KEY`, optionally `OPENAI_BASE_URL` / `OPENAI_MODEL`.
+  - `foundry` — `FOUNDRY_ENDPOINT`, `FOUNDRY_API_KEY`, `FOUNDRY_MODEL`.
+  - `openai-compatible` — `OPENAI_COMPATIBLE_ENDPOINT`,
+    `OPENAI_COMPATIBLE_MODEL`, optionally `OPENAI_COMPATIBLE_API_KEY` (a keyless
+    local host needs none).
 
-  Without all three set, the demo runs on a **scripted** provider instead (see
-  *Offline mode* below). Override the deployment per run with `--deployment <name>`.
+  With no provider variable set at all, the demo runs on a **scripted** provider
+  instead (see *Offline mode* below). Naming a provider that is missing variables
+  is an **error**, not a fallback: the demo exits rather than passing scripted
+  decisions off as a live model's. Override the model per run with
+  `--model <name>` (`--deployment` is still accepted).
 
 ## How to run
 

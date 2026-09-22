@@ -27,11 +27,36 @@ The single **Model** dropdown is above the three-step demo strip. Each entry nam
 live path, the exact deployment sent to Azure:
 
 - **Scripted model · repeatable** is offline, requires no credentials, and guarantees a stable stage story.
-- **Azure OpenAI · gpt-5.5**, **Azure OpenAI · gpt-5-mini**, and **Azure OpenAI · gpt-5-chat** call those exact
-  hardcoded deployments. A live model can resist, partially follow, or fully follow the hostile MCP addendum, so
-  the result is an experiment rather than a guaranteed scene.
+- The live entries name whichever inference host the environment resolves to, as **&lt;provider&gt; · &lt;model&gt;**.
+  A live model can resist, partially follow, or fully follow the hostile MCP addendum, so the result is an
+  experiment rather than a guaranteed scene.
 
-To enable Live mode, set credentials in the terminal that launches the app:
+### Choosing an inference host
+
+`AI_INFERENCE_PROVIDER` selects the host. Leave it unset and the app auto-detects in the order below, so a
+machine that has only ever set the three `AZURE_OPENAI_*` variables behaves exactly as it did before this
+selector existed.
+
+| `AI_INFERENCE_PROVIDER` | Required | Optional, with defaults |
+|---|---|---|
+| `azure` | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` | `AZURE_OPENAI_DEPLOYMENT_2`, `AZURE_OPENAI_DEPLOYMENT_3` |
+| `bitdeer` | `BITDEER_API_KEY` | `BITDEER_ENDPOINT` (default `https://api-inference.bitdeer.ai/v1`), `BITDEER_MODEL` (default `zai-org/GLM-5.3-Flash`), `BITDEER_MODEL_2`, `BITDEER_MODEL_3` |
+| `openai` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` (default `https://api.openai.com/v1`), `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENAI_MODEL_2`, `OPENAI_MODEL_3` |
+| `foundry` | `FOUNDRY_ENDPOINT`, `FOUNDRY_API_KEY`, `FOUNDRY_MODEL` | `FOUNDRY_MODEL_2`, `FOUNDRY_MODEL_3` |
+| `openai-compatible` | `OPENAI_COMPATIBLE_ENDPOINT`, `OPENAI_COMPATIBLE_MODEL` | `OPENAI_COMPATIBLE_API_KEY`, `OPENAI_COMPATIBLE_MODEL_2`, `OPENAI_COMPATIBLE_MODEL_3` |
+
+The `_2` and `_3` variants put a second and third model on the same host in the dropdown for a comparison run.
+An alternate that is not named falls back to the primary model, never to something you did not ask for.
+
+Bitdeer needs one variable:
+
+```powershell
+$env:AI_INFERENCE_PROVIDER = "bitdeer"
+$env:BITDEER_API_KEY = "YOUR-KEY"
+.\start.ps1
+```
+
+Azure OpenAI, unchanged:
 
 ```powershell
 $env:AZURE_OPENAI_ENDPOINT = "https://YOUR-RESOURCE.openai.azure.com/"
@@ -40,13 +65,19 @@ $env:AZURE_OPENAI_DEPLOYMENT = "YOUR-DEPLOYMENT"
 .\start.ps1
 ```
 
-When all three variables are present and `AZURE_OPENAI_DEPLOYMENT` matches one of the fixed names, the matching
-Azure entry is selected automatically at startup—the same Live-versus-Scripted choice made by the reference
-console. Otherwise **Scripted model · repeatable** is selected. You can change the choice explicitly in the same
-dropdown. The readiness line turns green only when the selected Azure deployment has an HTTPS endpoint and API
-key. Credentials stay in process memory and are never written to events, logs, replay artifacts, or source control.
+When a provider resolves, its model is selected automatically at startup—the same Live-versus-Scripted choice
+made by the reference console. Otherwise **Scripted model · repeatable** is selected. You can change the choice
+explicitly in the same dropdown. The readiness line turns green only when the selected provider has every
+variable it needs and an endpoint that will not leak the key: absolute HTTPS, or plain HTTP only to loopback so
+a local server still works. Credentials stay in process memory and are never written to events, logs, replay
+artifacts, or source control; every endpoint the app prints is reduced to scheme, host and port.
 
-The dropdown offers three measured live deployments from the imported demo:
+**Naming a provider that is not fully configured is an error, not a fallback.** The app will not quietly drop to
+the scripted model, because that would present fixed decisions as if a live model had made them. Unset every
+provider variable to get the offline demo.
+
+Three Azure deployments have measured evidence in this exact demo, and they stay on the dropdown whenever the
+host is Azure:
 
 | Model suggestion | Measured behavior in this exact demo | Presenter use |
 |---|---|---|
@@ -54,8 +85,10 @@ The dropdown offers three measured live deployments from the imported demo:
 | `gpt-5-mini` | 5/5 attack executions, sometimes discloses the export | Useful fallback; the final-answer reveal weakens the story slightly. |
 | `gpt-5-chat` | 0/5 attack executions | Resistant control that demonstrates why Live mode cannot promise a jailbreak. |
 
-These are the fixed deployment names for this application. Availability varies by region and subscription;
-check the current [Microsoft Foundry model catalog](https://learn.microsoft.com/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure).
+Availability varies by region and subscription; check the current
+[Microsoft Foundry model catalog](https://learn.microsoft.com/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure).
+Any other model — Bitdeer's `zai-org/GLM-5.3-Flash` included — is unmeasured here, and the evidence line says so
+rather than borrowing another model's numbers. Run the batch evals to get a rate for it.
 
 Changing environment variables after the app starts does not update that process; restart the app. **Run batch
 .Evals** always remains scripted and deterministic, even if Live mode is selected.
@@ -173,12 +206,12 @@ request. The UI never displays private chain-of-thought.
 
 ## Running the imported sample without the GUI
 
-The imported console sample supports the same Azure OpenAI environment variables for a headless or terminal run:
+The imported console sample reads the same provider variables for a headless or terminal run, and takes
+`--model <name>` to override the model on the selected host (`--deployment` is still accepted):
 
 ```powershell
-$env:AZURE_OPENAI_ENDPOINT = "https://YOUR-RESOURCE.openai.azure.com/"
-$env:AZURE_OPENAI_API_KEY = "YOUR-KEY"
-$env:AZURE_OPENAI_DEPLOYMENT = "YOUR-DEPLOYMENT"
+$env:AI_INFERENCE_PROVIDER = "bitdeer"
+$env:BITDEER_API_KEY = "YOUR-KEY"
 
 dotnet run --project src\AgentEval.PartnerDeskDemo\AgentEval.PartnerDeskDemo.csproj -- --all
 ```

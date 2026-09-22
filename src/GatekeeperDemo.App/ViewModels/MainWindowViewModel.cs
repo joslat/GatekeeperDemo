@@ -1,6 +1,7 @@
 using AgentEval.PartnerDeskDemo.Demo;
 using AgentEval.PartnerDeskDemo.Gates;
 using AgentEval.PartnerDeskDemo.Mcp;
+using AgentEval.PartnerDeskDemo.Providers;
 using AgentEval.PartnerDeskDemo.Tools;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -30,6 +31,11 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private static readonly IBrush EnabledGateSurface = Brush.Parse("#1B3552");
     private static readonly IBrush DisabledGateSurface = Brush.Parse("#0A111C");
 
+    /// <summary>
+    /// The three Azure deployments this demo has measured evidence for; <see cref="ModelSelectionEvidence"/> is
+    /// about exactly these. They stay on the dropdown for an Azure presenter even when the environment names only
+    /// one, because the numbers in the narrative are theirs.
+    /// </summary>
     private static readonly string[] KnownAzureDeployments =
     [
         "gpt-5.5",
@@ -37,16 +43,20 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         "gpt-5-chat",
     ];
 
-    private static readonly string[] AvailableModels =
-    [
-        "Scripted model · repeatable",
-        .. KnownAzureDeployments.Select(deployment => $"Azure OpenAI · {deployment}"),
-    ];
+    private const string ScriptedOption = "Scripted model · repeatable";
 
     private readonly PartnerDeskRunCoordinator _coordinator = new();
     private readonly PartnerDeskEvaluationService _evaluationService = new();
-    private readonly string? _azureEndpoint;
-    private readonly string? _azureApiKey;
+
+    /// <summary>The live models on offer, in dropdown order after the scripted entry.</summary>
+    private readonly IReadOnlyList<string> _liveModels;
+
+    private readonly string[] _availableModels;
+
+    /// <summary>Turns the chosen model into a configuration, without this view model knowing which host it is.</summary>
+    private readonly Func<string?, PartnerDeskModelConfiguration> _liveConfiguration;
+
+    private readonly string _liveProviderName;
     private CancellationTokenSource? _runCancellation;
     private DemoPhase? _canonicalPhase = DemoPhase.Clean;
     private bool _applyingPreset;
@@ -128,25 +138,62 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     private double _databaseShieldSize = 32;
     private double _emailShieldSize = 32;
 
+    /// <summary>The app as a presenter starts it: whichever host the environment resolves to.</summary>
     public MainWindowViewModel()
-        : this(
-            Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT"),
-            Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY"),
-            Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT"))
+        : this(InferenceProviderEnvironment.Settings)
     {
     }
 
-    public MainWindowViewModel(string? azureEndpoint, string? azureApiKey, string? azureDeployment)
+    /// <summary>
+    /// The app pointed at an already-resolved host. Bitdeer, Azure OpenAI, OpenAI, a Foundry resource or any
+    /// OpenAI-compatible endpoint all arrive here the same way.
+    /// </summary>
+    public MainWindowViewModel(InferenceProviderSettings settings)
+        : this(
+            LiveModelsFor(settings),
+            model => PartnerDeskModelConfiguration.Live(settings, model),
+            settings.IsConfigured
+                ? settings.DisplayName
+                : InferenceProviderEnvironment.DisplayNameOf(InferenceProvider.None),
+            // Open on the resolved model when there is one, so a configured machine needs no clicks.
+            settings.IsConfigured ? settings.Model : null)
     {
-        _azureEndpoint = azureEndpoint;
-        _azureApiKey = azureApiKey;
-        var deploymentIndex = Array.FindIndex(KnownAzureDeployments, model =>
-            string.Equals(model, azureDeployment?.Trim(), StringComparison.Ordinal));
-        _selectedModelIndex = !string.IsNullOrWhiteSpace(azureEndpoint)
-                              && !string.IsNullOrWhiteSpace(azureApiKey)
-                              && deploymentIndex >= 0
-            ? deploymentIndex + 1
-            : 0;
+    }
+
+    /// <summary>
+    /// Azure OpenAI from values supplied outright. Kept as its own entry point because an explicit
+    /// endpoint/key pair is a different thing from the environment-variable convention.
+    /// </summary>
+    public MainWindowViewModel(string? azureEndpoint, string? azureApiKey, string? azureDeployment)
+        : this(
+            KnownAzureDeployments,
+            model => PartnerDeskModelConfiguration.AzureOpenAI(azureEndpoint, azureApiKey, model),
+            InferenceProviderEnvironment.DisplayNameOf(InferenceProvider.AzureOpenAI),
+            !string.IsNullOrWhiteSpace(azureEndpoint) && !string.IsNullOrWhiteSpace(azureApiKey)
+                ? azureDeployment
+                : null)
+    {
+    }
+
+    private MainWindowViewModel(
+        IReadOnlyList<string> liveModels,
+        Func<string?, PartnerDeskModelConfiguration> liveConfiguration,
+        string liveProviderName,
+        string? preselectedModel)
+    {
+        _liveModels = liveModels;
+        _liveConfiguration = liveConfiguration;
+        _liveProviderName = liveProviderName;
+        _availableModels =
+        [
+            ScriptedOption,
+            .. liveModels.Select(model => $"{liveProviderName} · {model}"),
+        ];
+
+        var modelIndex = preselectedModel is null
+            ? -1
+            : IndexOf(liveModels, preselectedModel.Trim());
+        _selectedModelIndex = modelIndex >= 0 ? modelIndex + 1 : 0;
         RunCommand = new AsyncRelayCommand(RunCurrentAsync, () => !IsRunning && IsConfigurationValid);
         CompareCommand = new AsyncRelayCommand(RunComparisonAsync, () => !IsRunning && IsConfigurationValid);
         RunEvalsCommand = new AsyncRelayCommand(RunEvaluationAsync, () => !IsRunning && HasQuestion);
@@ -172,7 +219,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     public ObservableCollection<EventItemViewModel> DebugEvents { get; } = [];
     public ObservableCollection<string> EvaluationProgress { get; } = [];
 
-    public IReadOnlyList<string> ModelOptions => AvailableModels;
+    public IReadOnlyList<string> ModelOptions => _availableModels;
 
     public AsyncRelayCommand RunCommand { get; }
     public AsyncRelayCommand CompareCommand { get; }
@@ -294,34 +341,40 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         get => _selectedModelIndex;
         set
         {
-            var normalized = value >= 0 && value < AvailableModels.Length ? value : 0;
+            var normalized = value >= 0 && value < _availableModels.Length ? value : 0;
             if (!SetProperty(ref _selectedModelIndex, normalized)) return;
             ResetPresentationForConfigurationChange(makeCustom: false);
-            StatusMessage = IsAzureOpenAiSelected
-                ? $"Live Azure OpenAI deployment '{AzureDeployment}' selected — verify readiness, then run a nondeterministic experiment."
+            StatusMessage = IsLiveModelSelected
+                ? $"Live {_liveProviderName} model '{SelectedModel}' selected — verify readiness, then run a nondeterministic experiment."
                 : "Scripted model selected — runs are offline and repeatable.";
             RaiseModelConfigurationState();
         }
     }
 
-    public string? AzureDeployment => IsAzureOpenAiSelected
-        ? KnownAzureDeployments[SelectedModelIndex - 1]
+    /// <summary>The model the live host will be asked for, or <see langword="null"/> when scripted is selected.</summary>
+    public string? SelectedModel => IsLiveModelSelected
+        ? _liveModels[SelectedModelIndex - 1]
         : null;
 
-    public string ModelSelectionEvidence => AzureDeployment switch
+    /// <summary>
+    /// The measured evidence behind a model, where this demo has any. A host we have not measured says so rather
+    /// than borrowing another model's numbers.
+    /// </summary>
+    public string ModelSelectionEvidence => SelectedModel switch
     {
+        null => "DETERMINISTIC · fixed offline decisions · no model request",
         "gpt-5.5" => "RECOMMENDED · measured 5/5 · silent concealment",
         "gpt-5-mini" => "MEASURED 5/5 · sometimes discloses the export",
         "gpt-5-chat" => "RESISTANT CONTROL · measured 0/5",
-        _ => "DETERMINISTIC · fixed offline decisions · no model request",
+        _ => $"UNMEASURED · {_liveProviderName} · run the evals to get a rate for this model",
     };
 
-    public bool IsAzureOpenAiSelected => SelectedModelIndex > 0;
+    public bool IsLiveModelSelected => SelectedModelIndex > 0;
 
     public string ModelModeBadge =>
-        IsAzureOpenAiSelected ? "LIVE · NONDETERMINISTIC" : "SCRIPTED · REPEATABLE";
+        IsLiveModelSelected ? "LIVE · NONDETERMINISTIC" : "SCRIPTED · REPEATABLE";
 
-    public IBrush ModelModeAccent => IsAzureOpenAiSelected ? BlockedRoute : NeutralRoute;
+    public IBrush ModelModeAccent => IsLiveModelSelected ? BlockedRoute : NeutralRoute;
 
     public IBrush ModelReadinessAccent =>
         CurrentModelConfiguration().Validate().Count == 0 ? SafeRoute : RiskRoute;
@@ -337,22 +390,22 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
                 return "NOT READY · " + string.Join(" ", errors);
             }
 
-            return IsAzureOpenAiSelected
-                ? $"READY · real Azure request will use deployment '{AzureDeployment}' · credentials loaded from environment"
+            return IsLiveModelSelected
+                ? $"READY · real {_liveProviderName} request will use model '{SelectedModel}' · credentials loaded from environment"
                 : "READY · offline · no credentials · fixed model decisions";
         }
     }
 
-    public string ModelNodeTitle => IsAzureOpenAiSelected
-        ? $"Azure OpenAI · {AzureDeployment}"
+    public string ModelNodeTitle => IsLiveModelSelected
+        ? $"{_liveProviderName} · {SelectedModel}"
         : "Scripted offline provider";
 
-    public string ModelNodeDetail => IsAzureOpenAiSelected
+    public string ModelNodeDetail => IsLiveModelSelected
         ? "Live responses and attack compliance can vary between runs"
         : "Emits fixed next actions; hidden chain-of-thought is never displayed";
 
-    public string ModelDisclosure => IsAzureOpenAiSelected
-        ? "LIVE MODEL · Azure OpenAI output is nondeterministic; MCP/Gatekeeper are real; database/email effects remain local fakes."
+    public string ModelDisclosure => IsLiveModelSelected
+        ? $"LIVE MODEL · {_liveProviderName} output is nondeterministic; MCP/Gatekeeper are real; database/email effects remain local fakes."
         : "DEMO DISCLOSURE · Deterministic offline model trajectory; genuine MCP child process and shipped Gatekeeper; database/email effects are local fakes.";
 
     public bool AutoFollowEvents
@@ -1284,13 +1337,44 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
     }
 
     private PartnerDeskModelConfiguration CurrentModelConfiguration() =>
-        IsAzureOpenAiSelected
-            ? PartnerDeskModelConfiguration.AzureOpenAI(_azureEndpoint, _azureApiKey, AzureDeployment)
+        IsLiveModelSelected
+            ? _liveConfiguration(SelectedModel)
             : PartnerDeskModelConfiguration.Scripted;
+
+    /// <summary>
+    /// The live models on the dropdown for a resolved host: whatever the environment named, plus the three Azure
+    /// deployments this demo has published rates for when the host is Azure.
+    /// </summary>
+    private static IReadOnlyList<string> LiveModelsFor(InferenceProviderSettings settings)
+    {
+        List<string> models = [.. settings.Models];
+        if (settings.Provider == InferenceProvider.AzureOpenAI)
+        {
+            models.AddRange(KnownAzureDeployments.Where(
+                deployment => !models.Contains(deployment, StringComparer.Ordinal)));
+        }
+
+        // A host with no credentials still shows one live row, so the readiness line can explain what is missing
+        // rather than the dropdown silently offering only the scripted option.
+        return models.Count > 0 ? models : [settings.Model ?? "model not set"];
+    }
+
+    private static int IndexOf(IReadOnlyList<string> models, string model)
+    {
+        for (var i = 0; i < models.Count; i++)
+        {
+            if (string.Equals(models[i], model, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 
     private void RaiseModelConfigurationState()
     {
-        RaisePropertyChanged(nameof(IsAzureOpenAiSelected));
+        RaisePropertyChanged(nameof(IsLiveModelSelected));
         RaisePropertyChanged(nameof(ModelModeBadge));
         RaisePropertyChanged(nameof(ModelModeAccent));
         RaisePropertyChanged(nameof(ModelReadinessAccent));
@@ -1298,7 +1382,7 @@ public sealed class MainWindowViewModel : BindableBase, IAsyncDisposable
         RaisePropertyChanged(nameof(ModelNodeTitle));
         RaisePropertyChanged(nameof(ModelNodeDetail));
         RaisePropertyChanged(nameof(ModelDisclosure));
-        RaisePropertyChanged(nameof(AzureDeployment));
+        RaisePropertyChanged(nameof(SelectedModel));
         RaisePropertyChanged(nameof(ModelSelectionEvidence));
         RefreshConfigurationState();
     }

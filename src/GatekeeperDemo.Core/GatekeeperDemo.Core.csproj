@@ -8,7 +8,8 @@
     <ProjectReference Include="..\AgentEval.PartnerDeskDemo.Evals\AgentEval.PartnerDeskDemo.Evals.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Azure.AI.OpenAI" />
+    <!-- IChatClient only. The inference SDKs live at the edge that builds the client
+         (AgentEval.PartnerDeskDemo/Providers), not here. -->
     <PackageReference Include="Microsoft.Extensions.AI" />
   </ItemGroup>
 </Project>

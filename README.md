@@ -33,12 +33,13 @@ The default user request is kept identical across the numbered demos. You can ed
 MCP switch and Gatekeeper master/individual gates create a custom run; containment automatically enables its
 required result-admission evidence source.
 
-For a live run, set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_DEPLOYMENT` before launching.
-When the deployment matches one of the three fixed entries, the app preselects **Azure OpenAI · &lt;deployment&gt;**
-just like the reference console selects Live mode. Live model output and attack compliance are nondeterministic;
-the database and email effects remain safe local fakes. The single dropdown contains the demo's measured
-`gpt-5.5`, `gpt-5-mini`, and `gpt-5-chat` deployments. See the [user guide](docs/User-Guide.md) for exact
-setup, measured behavior, and disclosure.
+For a live run, pick an inference host with `AI_INFERENCE_PROVIDER` (`azure`, `bitdeer`, `openai`, `foundry`, or
+`openai-compatible`) and set that provider's variables before launching. Bitdeer needs only `BITDEER_API_KEY`;
+it defaults to `zai-org/GLM-5.3-Flash` at `https://api-inference.bitdeer.ai/v1`. Leaving the selector unset
+auto-detects in that order, so a machine that has only ever set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`
+and `AZURE_OPENAI_DEPLOYMENT` behaves exactly as it did before. The app preselects the resolved model. Live
+model output and attack compliance are nondeterministic; the database and email effects remain safe local fakes.
+See the [user guide](docs/User-Guide.md) for exact setup, measured behavior, and disclosure.
 
 ## What is real and what is simulated
 
