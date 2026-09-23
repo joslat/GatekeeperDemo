@@ -135,13 +135,21 @@ public static class InferenceProviderEnvironment
     public const string KeylessSentinel = "no-key-needed";
 
     /// <summary>
-    /// Azure first, so a machine that has only ever set the three <c>AZURE_OPENAI_*</c> variables behaves exactly as
-    /// it did before this selector existed. That backward compatibility is a feature, and a test pins it.
+    /// Bitdeer first. This is a deliberate departure from the port guide, which puts Azure first so a machine that
+    /// has only ever set the three <c>AZURE_OPENAI_*</c> variables is unaffected.
     /// </summary>
+    /// <remarks>
+    /// That rule protects an Azure resource still in use. This demo's is not: it was retired on cost grounds and its
+    /// endpoint no longer resolves, while the stale variables stayed in the maintainer's environment and kept
+    /// winning the detection — so a presenter who had set the selector in a *later* shell still got a dead Azure
+    /// deployment on the dropdown. Detecting a host nobody can reach, ahead of the one that works, is the failure
+    /// this order exists to prevent. Set <see cref="SelectorVariable"/> to pin any provider outright; that always
+    /// beats detection.
+    /// </remarks>
     private static readonly InferenceProvider[] AutoDetectOrder =
     [
-        InferenceProvider.AzureOpenAI,
         InferenceProvider.Bitdeer,
+        InferenceProvider.AzureOpenAI,
         InferenceProvider.OpenAI,
         InferenceProvider.Foundry,
         InferenceProvider.OpenAICompatible,

@@ -119,9 +119,54 @@ public sealed class ViewModelTests
         Assert.True(viewModel.IsLiveModelSelected);
         Assert.True(viewModel.IsConfigurationValid);
         Assert.Contains("Bitdeer", viewModel.ModelNodeTitle, StringComparison.Ordinal);
-        // An unmeasured model says so rather than borrowing the Azure deployments' published rates.
-        Assert.Contains("UNMEASURED", viewModel.ModelSelectionEvidence, StringComparison.Ordinal);
+        // A Bitdeer model reports its own spot check rather than borrowing the Azure deployments' published rates.
+        Assert.Contains("SPOT CHECK 0/1", viewModel.ModelSelectionEvidence, StringComparison.Ordinal);
+        Assert.DoesNotContain("5/5", viewModel.ModelSelectionEvidence, StringComparison.Ordinal);
         Assert.DoesNotContain("not-a-real-secret", viewModel.ModelReadinessText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StaleAzureVariables_DoNotPutADeadDeploymentOnTheDropdown()
+    {
+        // The reported bug: a shell that never saw AI_INFERENCE_PROVIDER still had the retired AZURE_OPENAI_*
+        // variables, so the app opened on a deployment whose endpoint no longer resolves.
+        var settings = InferenceProviderEnvironment.Resolve(Env(
+            ("AZURE_OPENAI_ENDPOINT", "https://retired.openai.azure.com/"),
+            ("AZURE_OPENAI_API_KEY", "not-a-real-secret"),
+            ("AZURE_OPENAI_DEPLOYMENT", "gpt-5.5"),
+            ("BITDEER_API_KEY", "not-a-real-secret")));
+
+        await using var viewModel = new MainWindowViewModel(settings);
+
+        Assert.Contains("Bitdeer", viewModel.ModelNodeTitle, StringComparison.Ordinal);
+        Assert.Equal(InferenceProviderEnvironment.BitdeerDefaultModel, viewModel.SelectedModel);
+        Assert.DoesNotContain(
+            viewModel.ModelOptions, option => option.Contains("gpt-5.5", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task BitdeerDropdown_OffersTheAccountsChatModels()
+    {
+        var settings = InferenceProviderEnvironment.Resolve(Env(
+            ("AI_INFERENCE_PROVIDER", "bitdeer"),
+            ("BITDEER_API_KEY", "not-a-real-secret")));
+
+        await using var viewModel = new MainWindowViewModel(settings);
+
+        // Scripted, then the six chat models the account serves. The embedding, reranker and image models it also
+        // lists cannot answer a chat request and are deliberately absent.
+        Assert.Equal(7, viewModel.ModelOptions.Count);
+        foreach (var model in new[]
+                 {
+                     "zai-org/GLM-5.3-Flash", "deepseek-ai/DeepSeek-V4-Flash", "deepseek-ai/DeepSeek-V4.1-Flash",
+                     "Qwen/Qwen3.8-27B", "moonshotai/Kimi-K3", "zai-org/GLM-5.3",
+                 })
+        {
+            Assert.Contains(viewModel.ModelOptions, option => option.Contains(model, StringComparison.Ordinal));
+        }
+
+        Assert.DoesNotContain(viewModel.ModelOptions, option => option.Contains("bge-", StringComparison.Ordinal));
+        Assert.DoesNotContain(viewModel.ModelOptions, option => option.Contains("seedream", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -134,7 +179,7 @@ public sealed class ViewModelTests
 
         await using var viewModel = new MainWindowViewModel(settings);
 
-        Assert.Equal(3, viewModel.ModelOptions.Count);
+        // The environment's own models lead — primary then BITDEER_MODEL_2 — and the account catalogue follows.
         Assert.Contains("Scripted", viewModel.ModelOptions[0], StringComparison.Ordinal);
         Assert.Contains(
             InferenceProviderEnvironment.BitdeerDefaultModel, viewModel.ModelOptions[1], StringComparison.Ordinal);
@@ -142,6 +187,11 @@ public sealed class ViewModelTests
 
         viewModel.SelectedModelIndex = 2;
         Assert.Equal("moonshotai/Kimi-K2.5", viewModel.SelectedModel);
+
+        // A model named by the environment is listed once, not again by the catalogue.
+        Assert.Single(
+            viewModel.ModelOptions,
+            option => option.Contains(InferenceProviderEnvironment.BitdeerDefaultModel, StringComparison.Ordinal));
     }
 
     [Fact]

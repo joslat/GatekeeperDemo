@@ -35,8 +35,10 @@ there is no SMTP client, no socket, and no HTTP anywhere in either tool.
 
 - **.NET 10 SDK.**
 - **An inference host** for the live path. `AI_INFERENCE_PROVIDER` picks one of
-  `azure`, `bitdeer`, `openai`, `foundry`, `openai-compatible`; leave it unset to
-  auto-detect in that order.
+  `bitdeer`, `azure`, `openai`, `foundry`, `openai-compatible`; leave it unset to
+  auto-detect in that order. Bitdeer is detected first so a retired Azure resource
+  whose variables linger in a shell cannot win over a host that works; setting the
+  selector pins any provider outright.
   - `bitdeer` — `BITDEER_API_KEY` only. Defaults to `zai-org/GLM-5.3-Flash` at
     `https://api-inference.bitdeer.ai/v1`; override with `BITDEER_MODEL` /
     `BITDEER_ENDPOINT`.

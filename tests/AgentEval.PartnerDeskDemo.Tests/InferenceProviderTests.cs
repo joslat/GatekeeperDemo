@@ -80,20 +80,51 @@ public sealed class InferenceProviderTests
     }
 
     [Fact]
-    public void AzureIsDetectedFirst_SoAnExistingMachineIsUnaffected()
+    public void BitdeerIsDetectedFirst_SoStaleAzureVariablesCannotWin()
     {
-        // The backward-compatibility guarantee, pinned: three Azure variables and nothing else behave exactly as
-        // they did before the selector existed, even with another host's key also present.
+        // The demo's Azure resource was retired and its endpoint no longer resolves, but the variables stayed set
+        // in the maintainer's environment and kept winning detection, putting a dead deployment on the dropdown.
+        // Detecting a host nobody can reach ahead of the one that works is the failure this order prevents.
         var settings = InferenceProviderEnvironment.Resolve(Env(
+            ("AZURE_OPENAI_ENDPOINT", "https://retired.openai.azure.com/"),
+            ("AZURE_OPENAI_API_KEY", "azure-key"),
+            ("AZURE_OPENAI_DEPLOYMENT", "gpt-5.5"),
+            ("BITDEER_API_KEY", "bitdeer-key")));
+
+        Assert.Equal(InferenceProvider.Bitdeer, settings.Provider);
+        Assert.Equal(InferenceProviderSelection.AutoDetected, settings.Selection);
+        Assert.False(settings.UsesAzureProtocol);
+        Assert.Equal(InferenceProviderEnvironment.BitdeerDefaultModel, settings.Model);
+    }
+
+    [Fact]
+    public void AzureStillResolves_WhenItIsTheOnlyHostConfigured()
+    {
+        // Demoting Azure in the detection order must not make it unreachable: a machine with only the three
+        // AZURE_OPENAI_* variables still gets Azure, exactly as before.
+        var settings = InferenceProviderEnvironment.Resolve(Env(
+            ("AZURE_OPENAI_ENDPOINT", "https://example.openai.azure.com/"),
+            ("AZURE_OPENAI_API_KEY", "azure-key"),
+            ("AZURE_OPENAI_DEPLOYMENT", "gpt-5.5")));
+
+        Assert.Equal(InferenceProvider.AzureOpenAI, settings.Provider);
+        Assert.True(settings.UsesAzureProtocol);
+        Assert.Equal("gpt-5.5", settings.Model);
+    }
+
+    [Fact]
+    public void TheSelectorStillPinsAzureOverBitdeer()
+    {
+        // Explicit beats detected, in both directions: the new order changes detection, never an outright choice.
+        var settings = InferenceProviderEnvironment.Resolve(Env(
+            ("AI_INFERENCE_PROVIDER", "azure"),
             ("AZURE_OPENAI_ENDPOINT", "https://example.openai.azure.com/"),
             ("AZURE_OPENAI_API_KEY", "azure-key"),
             ("AZURE_OPENAI_DEPLOYMENT", "gpt-5.5"),
             ("BITDEER_API_KEY", "bitdeer-key")));
 
         Assert.Equal(InferenceProvider.AzureOpenAI, settings.Provider);
-        Assert.Equal(InferenceProviderSelection.AutoDetected, settings.Selection);
-        Assert.True(settings.UsesAzureProtocol);
-        Assert.Equal("gpt-5.5", settings.Model);
+        Assert.Equal(InferenceProviderSelection.Explicit, settings.Selection);
     }
 
     [Fact]

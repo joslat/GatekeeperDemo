@@ -33,20 +33,50 @@ live path, the exact deployment sent to Azure:
 
 ### Choosing an inference host
 
-`AI_INFERENCE_PROVIDER` selects the host. Leave it unset and the app auto-detects in the order below, so a
-machine that has only ever set the three `AZURE_OPENAI_*` variables behaves exactly as it did before this
-selector existed.
+`AI_INFERENCE_PROVIDER` selects the host. Setting it pins that host outright and always beats detection. Leave it
+unset and the app auto-detects in the order of the table below — **Bitdeer first**.
 
-| `AI_INFERENCE_PROVIDER` | Required | Optional, with defaults |
-|---|---|---|
-| `azure` | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` | `AZURE_OPENAI_DEPLOYMENT_2`, `AZURE_OPENAI_DEPLOYMENT_3` |
-| `bitdeer` | `BITDEER_API_KEY` | `BITDEER_ENDPOINT` (default `https://api-inference.bitdeer.ai/v1`), `BITDEER_MODEL` (default `zai-org/GLM-5.3-Flash`), `BITDEER_MODEL_2`, `BITDEER_MODEL_3` |
-| `openai` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` (default `https://api.openai.com/v1`), `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENAI_MODEL_2`, `OPENAI_MODEL_3` |
-| `foundry` | `FOUNDRY_ENDPOINT`, `FOUNDRY_API_KEY`, `FOUNDRY_MODEL` | `FOUNDRY_MODEL_2`, `FOUNDRY_MODEL_3` |
-| `openai-compatible` | `OPENAI_COMPATIBLE_ENDPOINT`, `OPENAI_COMPATIBLE_MODEL` | `OPENAI_COMPATIBLE_API_KEY`, `OPENAI_COMPATIBLE_MODEL_2`, `OPENAI_COMPATIBLE_MODEL_3` |
+| Order | `AI_INFERENCE_PROVIDER` | Required | Optional, with defaults |
+|---|---|---|---|
+| 1 | `bitdeer` | `BITDEER_API_KEY` | `BITDEER_ENDPOINT` (default `https://api-inference.bitdeer.ai/v1`), `BITDEER_MODEL` (default `zai-org/GLM-5.3-Flash`), `BITDEER_MODEL_2`, `BITDEER_MODEL_3` |
+| 2 | `azure` | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` | `AZURE_OPENAI_DEPLOYMENT_2`, `AZURE_OPENAI_DEPLOYMENT_3` |
+| 3 | `openai` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` (default `https://api.openai.com/v1`), `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENAI_MODEL_2`, `OPENAI_MODEL_3` |
+| 4 | `foundry` | `FOUNDRY_ENDPOINT`, `FOUNDRY_API_KEY`, `FOUNDRY_MODEL` | `FOUNDRY_MODEL_2`, `FOUNDRY_MODEL_3` |
+| 5 | `openai-compatible` | `OPENAI_COMPATIBLE_ENDPOINT`, `OPENAI_COMPATIBLE_MODEL` | `OPENAI_COMPATIBLE_API_KEY`, `OPENAI_COMPATIBLE_MODEL_2`, `OPENAI_COMPATIBLE_MODEL_3` |
 
-The `_2` and `_3` variants put a second and third model on the same host in the dropdown for a comparison run.
-An alternate that is not named falls back to the primary model, never to something you did not ask for.
+> **Why Bitdeer is detected before Azure.** The port guide this design follows puts Azure first, so a machine
+> that has only ever set the three `AZURE_OPENAI_*` variables is unaffected. That protects an Azure resource
+> still in use. This demo's was retired on cost grounds and its endpoint no longer resolves, while the stale
+> variables stayed in the environment and kept winning detection — so the app opened on a dead deployment even
+> for a presenter who had set the selector in a later shell. Detecting a host nobody can reach, ahead of one that
+> works, is the failure this order prevents. Azure is still detected when it is the only host configured, and
+> `AI_INFERENCE_PROVIDER=azure` still pins it outright.
+
+The `_2` and `_3` variants put a second and third model on the same host at the top of the dropdown for a
+comparison run. An alternate that is not named falls back to the primary model, never to something you did not
+ask for.
+
+### Which Bitdeer models the dropdown offers
+
+After whatever the environment names, the dropdown lists the chat models this demo's Bitdeer account serves:
+
+| Model | Note |
+|---|---|
+| `zai-org/GLM-5.3-Flash` | The default. Spot check: refused the injection. |
+| `deepseek-ai/DeepSeek-V4-Flash` | Untested here. |
+| `deepseek-ai/DeepSeek-V4.1-Flash` | Spot check: refused the injection. |
+| `Qwen/Qwen3.8-27B` | Untested here. |
+| `moonshotai/Kimi-K3` | Spot check: refused the injection. |
+| `zai-org/GLM-5.3` | Spot check: refused the injection. **Slow — one phase took 641s.** |
+
+The list comes from `GET /v1/models` on the account, minus the two BAAI embedding/reranker models and the
+seedream image model, which cannot answer a chat request. A model the account does not serve fails at the first
+call, so the public catalogue is not the right source. `BITDEER_MODEL` overrides the default.
+
+Each "spot check" above is a **single phase-2 run**, not a rate. Every Bitdeer model tried named the injection
+and declined it, which means demos 2 and 3 — the exfiltration and the gate catching it — have nothing to show on
+those models. Demo 1 and demo 4 are unaffected, and the scripted offline model still tells the whole story
+deterministically. Run the batch evals if you need a real rate for a model.
 
 Bitdeer needs one variable:
 

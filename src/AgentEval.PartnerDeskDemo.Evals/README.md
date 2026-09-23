@@ -41,7 +41,7 @@ Gatekeeper applies to every judge: a model name is not proof.
 ## Run it
 
 Live (needs an inference host: `AI_INFERENCE_PROVIDER` plus that provider's
-variables, or nothing and it auto-detects. `bitdeer` needs only `BITDEER_API_KEY`;
+variables, or nothing and it auto-detects, Bitdeer first. `bitdeer` needs only `BITDEER_API_KEY`;
 the published rates below were measured on `gpt-5.5`):
 
 ```bash
